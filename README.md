@@ -6,7 +6,7 @@ lsef (List Extended Features) is a Rust-based file listing tool inspired by ls.
 
 ## Overview
 
-lsef is designed to provide a richer and more readable file listing experience than the standard ls command.
+`lsef` is designed to provide a richer and more readable file listing experience than the standard `ls` command.
 
 Instead of showing only file and directory names, lsef aims to display additional information such as file type, size, and modification time in a clearer format.
 
