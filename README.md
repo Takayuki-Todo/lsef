@@ -1,5 +1,6 @@
 # lsef
 
+[![build](https://github.com/Takayuki-Todo/lsef/actions/workflows/build.yaml/badge.svg)](https://github.com/Takayuki-Todo/lsef/actions/workflows/build.yaml)
 [![Coverage Status](https://coveralls.io/repos/github/Takayuki-Todo/lsef/badge.svg?branch=main)](https://coveralls.io/github/Takayuki-Todo/lsef?branch=main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
