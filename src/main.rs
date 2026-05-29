@@ -98,7 +98,36 @@ impl Config {
     where
         I: IntoIterator<Item = String>,
     {
-        let mut config = Self {
+        let mut config = Self::default_for_stdout();
+        let mut iter = args.into_iter().peekable();
+
+        while let Some(arg) = iter.next() {
+            if arg == "--" {
+                config.paths.extend(iter.map(PathBuf::from));
+                break;
+            }
+
+            if let Some(option) = arg.strip_prefix("--") {
+                config.apply_long_option(option, &mut iter)?;
+                continue;
+            }
+
+            if arg.starts_with('-') && arg.len() > 1 {
+                config.apply_short_flags(&arg)?;
+                continue;
+            }
+
+            config.paths.push(PathBuf::from(arg));
+        }
+
+        config.ensure_default_path();
+        Ok(config)
+    }
+
+    /// 標準出力の状態に応じたデフォルト設定を作る。
+    fn default_for_stdout() -> Self {
+        let stdout_is_terminal = io::stdout().is_terminal();
+        Self {
             paths: Vec::new(),
             show_all: false,
             whole_all: false,
@@ -110,102 +139,178 @@ impl Config {
             time_format: TimeFormat::Local,
             bytes: false,
             type_filter: None,
-            output: OutputMode::Table,
+            output: default_output(stdout_is_terminal),
             icon: false,
             summary: false,
             sensitive: false,
             debug: false,
-            color: io::stdout().is_terminal() && env::var_os("NO_COLOR").is_none(),
-        };
+            color: stdout_is_terminal && env::var_os("NO_COLOR").is_none(),
+        }
+    }
 
-        let mut iter = args.into_iter().peekable();
-        while let Some(arg) = iter.next() {
-            if arg == "--" {
-                config.paths.extend(iter.map(PathBuf::from));
-                break;
-            }
-
-            if let Some(option) = arg.strip_prefix("--") {
-                if option.is_empty() {
-                    return Err(CliError::Usage("empty option '--' is not valid".into()));
-                }
-
-                let (name, inline_value) = split_long_option(option);
-                match name {
-                    "help" => return Err(CliError::Help),
-                    "version" => return Err(CliError::Version),
-                    "all" => config.show_all = true,
-                    "whole-all" => {
-                        config.show_all = true;
-                        config.whole_all = true;
-                    }
-                    "long" => config.long = true,
-                    "sort" => {
-                        let value = value_for(name, inline_value, &mut iter)?;
-                        config.sort = SortKey::parse(&value)?;
-                    }
-                    "reverse" => config.reverse = true,
-                    "recursive" => config.recursive = true,
-                    "max-depth" => {
-                        let value = value_for(name, inline_value, &mut iter)?;
-                        config.max_depth = Some(parse_usize(name, &value)?);
-                    }
-                    "time-format" => {
-                        let value = value_for(name, inline_value, &mut iter)?;
-                        config.time_format = TimeFormat::parse(&value)?;
-                    }
-                    "bytes" => config.bytes = true,
-                    "type" => {
-                        let value = value_for(name, inline_value, &mut iter)?;
-                        config.type_filter = Some(TypeFilter::parse(&value)?);
-                    }
-                    "output" => {
-                        let value = value_for(name, inline_value, &mut iter)?;
-                        config.output = OutputMode::parse(&value)?;
-                    }
-                    "format" => {
-                        let value = value_for(name, inline_value, &mut iter)?;
-                        config.output = OutputMode::parse_format(&value)?;
-                    }
-                    "icon" => config.icon = true,
-                    "summary" => config.summary = true,
-                    "sensitive" => config.sensitive = true,
-                    "debug" => config.debug = true,
-                    "color" => config.color = true,
-                    "no-color" => config.color = false,
-                    _ => return Err(CliError::Usage(format!("unknown option '--{name}'"))),
-                }
-                continue;
-            }
-
-            if arg.starts_with('-') && arg.len() > 1 {
-                for flag in arg[1..].chars() {
-                    match flag {
-                        'a' => config.show_all = true,
-                        'A' => {
-                            config.show_all = true;
-                            config.whole_all = true;
-                        }
-                        'l' => config.long = true,
-                        'S' => config.sort = SortKey::Size,
-                        't' => config.sort = SortKey::Time,
-                        'r' => config.reverse = true,
-                        'R' => config.recursive = true,
-                        'h' => return Err(CliError::Help),
-                        _ => return Err(CliError::Usage(format!("unknown option '-{flag}'"))),
-                    }
-                }
-                continue;
-            }
-
-            config.paths.push(PathBuf::from(arg));
+    /// 長いオプションを現在の設定へ反映する。
+    fn apply_long_option<I>(
+        &mut self,
+        option: &str,
+        iter: &mut std::iter::Peekable<I>,
+    ) -> Result<(), CliError>
+    where
+        I: Iterator<Item = String>,
+    {
+        if option.is_empty() {
+            return Err(CliError::Usage("empty option '--' is not valid".into()));
         }
 
-        if config.paths.is_empty() {
-            config.paths.push(PathBuf::from("."));
+        let (name, inline_value) = split_long_option(option);
+        match name {
+            "help" => Err(CliError::Help),
+            "version" => Err(CliError::Version),
+            "all" => Ok(self.show_all = true),
+            "whole-all" => Ok(self.enable_whole_all()),
+            "long" => Ok(self.long = true),
+            "sort" => self.set_sort(name, inline_value, iter),
+            "reverse" => Ok(self.reverse = true),
+            "recursive" => Ok(self.recursive = true),
+            "max-depth" => self.set_max_depth(name, inline_value, iter),
+            "time-format" => self.set_time_format(name, inline_value, iter),
+            "bytes" => Ok(self.bytes = true),
+            "type" => self.set_type_filter(name, inline_value, iter),
+            "output" => self.set_output(name, inline_value, iter),
+            "format" => self.set_format(name, inline_value, iter),
+            "icon" => Ok(self.icon = true),
+            "summary" => Ok(self.summary = true),
+            "sensitive" => Ok(self.sensitive = true),
+            "debug" => Ok(self.debug = true),
+            "color" => Ok(self.color = true),
+            "no-color" => Ok(self.color = false),
+            _ => Err(CliError::Usage(format!("unknown option '--{name}'"))),
         }
+    }
 
-        Ok(config)
+    /// 短いオプション群を現在の設定へ反映する。
+    fn apply_short_flags(&mut self, arg: &str) -> Result<(), CliError> {
+        for flag in arg[1..].chars() {
+            match flag {
+                'a' => self.show_all = true,
+                'A' => self.enable_whole_all(),
+                'l' => self.long = true,
+                'S' => self.sort = SortKey::Size,
+                't' => self.sort = SortKey::Time,
+                'r' => self.reverse = true,
+                'R' => self.recursive = true,
+                'h' => return Err(CliError::Help),
+                _ => return Err(CliError::Usage(format!("unknown option '-{flag}'"))),
+            }
+        }
+        Ok(())
+    }
+
+    /// `-A` / `--whole-all` 用の隠しファイル設定を有効にする。
+    fn enable_whole_all(&mut self) {
+        self.show_all = true;
+        self.whole_all = true;
+    }
+
+    /// 対象パスが空ならカレントディレクトリを補う。
+    fn ensure_default_path(&mut self) {
+        if self.paths.is_empty() {
+            self.paths.push(PathBuf::from("."));
+        }
+    }
+}
+
+/// 標準出力が端末かどうかから既定の出力形式を返す。
+fn default_output(stdout_is_terminal: bool) -> OutputMode {
+    if stdout_is_terminal {
+        OutputMode::Table
+    } else {
+        OutputMode::Plain
+    }
+}
+
+impl Config {
+    /// `--sort` の値を解析して設定する。
+    fn set_sort<I>(
+        &mut self,
+        name: &str,
+        inline_value: Option<String>,
+        iter: &mut std::iter::Peekable<I>,
+    ) -> Result<(), CliError>
+    where
+        I: Iterator<Item = String>,
+    {
+        self.sort = SortKey::parse(&value_for(name, inline_value, iter)?)?;
+        Ok(())
+    }
+
+    /// `--max-depth` の値を解析して設定する。
+    fn set_max_depth<I>(
+        &mut self,
+        name: &str,
+        inline_value: Option<String>,
+        iter: &mut std::iter::Peekable<I>,
+    ) -> Result<(), CliError>
+    where
+        I: Iterator<Item = String>,
+    {
+        self.max_depth = Some(parse_usize(name, &value_for(name, inline_value, iter)?)?);
+        Ok(())
+    }
+
+    /// `--time-format` の値を解析して設定する。
+    fn set_time_format<I>(
+        &mut self,
+        name: &str,
+        inline_value: Option<String>,
+        iter: &mut std::iter::Peekable<I>,
+    ) -> Result<(), CliError>
+    where
+        I: Iterator<Item = String>,
+    {
+        self.time_format = TimeFormat::parse(&value_for(name, inline_value, iter)?)?;
+        Ok(())
+    }
+
+    /// `--type` の値を解析して設定する。
+    fn set_type_filter<I>(
+        &mut self,
+        name: &str,
+        inline_value: Option<String>,
+        iter: &mut std::iter::Peekable<I>,
+    ) -> Result<(), CliError>
+    where
+        I: Iterator<Item = String>,
+    {
+        self.type_filter = Some(TypeFilter::parse(&value_for(name, inline_value, iter)?)?);
+        Ok(())
+    }
+
+    /// `--output` の値を解析して設定する。
+    fn set_output<I>(
+        &mut self,
+        name: &str,
+        inline_value: Option<String>,
+        iter: &mut std::iter::Peekable<I>,
+    ) -> Result<(), CliError>
+    where
+        I: Iterator<Item = String>,
+    {
+        self.output = OutputMode::parse(&value_for(name, inline_value, iter)?)?;
+        Ok(())
+    }
+
+    /// `--format` の値を解析して設定する。
+    fn set_format<I>(
+        &mut self,
+        name: &str,
+        inline_value: Option<String>,
+        iter: &mut std::iter::Peekable<I>,
+    ) -> Result<(), CliError>
+    where
+        I: Iterator<Item = String>,
+    {
+        self.output = OutputMode::parse_format(&value_for(name, inline_value, iter)?)?;
+        Ok(())
     }
 }
 
@@ -314,13 +419,16 @@ enum OutputMode {
 }
 
 impl OutputMode {
-    /// `--output` で指定できる限定的な出力モードを解析する。
+    /// `--output` で指定できる出力モードを解析する。
     fn parse(value: &str) -> Result<Self, CliError> {
         match value {
             "table" => Ok(Self::Table),
             "plain" => Ok(Self::Plain),
+            "csv" => Ok(Self::Csv),
+            "json" => Ok(Self::Json),
+            "yaml" => Ok(Self::Yaml),
             _ => Err(CliError::Usage(format!(
-                "unsupported output mode '{value}' (expected table or plain)"
+                "unsupported output mode '{value}' (expected plain, table, csv, json, or yaml)"
             ))),
         }
     }
@@ -393,7 +501,7 @@ impl EntryKind {
             Self::File => "F",
             Self::Dir => "D",
             Self::Link => "L",
-            Self::BrokenLink => "LB",
+            Self::BrokenLink => "B",
             Self::Executable => "X",
             Self::Other => "O",
         }
@@ -464,65 +572,15 @@ fn collect_dir(
     sections: &mut Vec<Section>,
     state: &mut RunState,
 ) {
-    let read_dir = match fs::read_dir(dir) {
-        Ok(read_dir) => read_dir,
-        Err(error) => {
-            state.had_error = true;
-            eprintln!("lsef: {}: {error}", dir.display());
-            sections.push(Section {
-                title: Some(dir.to_path_buf()),
-                entries: Vec::new(),
-            });
-            return;
-        }
+    let Some(read_dir) = open_dir_or_record(dir, sections, state) else {
+        return;
     };
 
     let mut entries = Vec::new();
     let mut subdirs = Vec::new();
 
     for item in read_dir {
-        let item = match item {
-            Ok(item) => item,
-            Err(error) => {
-                state.had_error = true;
-                eprintln!("lsef: {}: {error}", dir.display());
-                continue;
-            }
-        };
-
-        let path = item.path();
-        let name = item.file_name().to_string_lossy().into_owned();
-
-        if !config.show_all && is_hidden_name(&name) {
-            continue;
-        }
-
-        if config.show_all
-            && !config.whole_all
-            && is_ignored_by_gitignore(&path, path.is_dir(), config.debug)
-        {
-            continue;
-        }
-
-        let Some(entry) = entry_from_path(&path) else {
-            state.had_error = true;
-            eprintln!("lsef: {}: could not read metadata", path.display());
-            continue;
-        };
-
-        let should_recurse = matches!(entry.kind, EntryKind::Dir);
-
-        if config
-            .type_filter
-            .is_none_or(|filter| entry.kind.matches_filter(filter))
-        {
-            state.summary.add(&entry);
-            entries.push(entry);
-        }
-
-        if should_recurse {
-            subdirs.push(path);
-        }
+        collect_dir_item(item, dir, config, state, &mut entries, &mut subdirs);
     }
 
     sections.push(Section {
@@ -530,6 +588,102 @@ fn collect_dir(
         entries,
     });
 
+    collect_child_dirs(subdirs, depth, config, sections, state);
+}
+
+/// ディレクトリを開き、失敗時は空セクションとエラー状態を記録する。
+fn open_dir_or_record(
+    dir: &Path,
+    sections: &mut Vec<Section>,
+    state: &mut RunState,
+) -> Option<fs::ReadDir> {
+    match fs::read_dir(dir) {
+        Ok(read_dir) => Some(read_dir),
+        Err(error) => {
+            state.had_error = true;
+            eprintln!("lsef: {}: {error}", dir.display());
+            sections.push(Section {
+                title: Some(dir.to_path_buf()),
+                entries: Vec::new(),
+            });
+            None
+        }
+    }
+}
+
+/// ディレクトリ内の 1 項目を表示対象と再帰対象へ振り分ける。
+fn collect_dir_item(
+    item: io::Result<fs::DirEntry>,
+    dir: &Path,
+    config: &Config,
+    state: &mut RunState,
+    entries: &mut Vec<Entry>,
+    subdirs: &mut Vec<PathBuf>,
+) {
+    let item = match item {
+        Ok(item) => item,
+        Err(error) => return record_read_error(dir, error, state),
+    };
+
+    let path = item.path();
+    let name = item.file_name().to_string_lossy().into_owned();
+    if should_skip_entry(&path, &name, config) {
+        return;
+    }
+
+    let Some(entry) = entry_from_path(&path) else {
+        return record_metadata_error(&path, state);
+    };
+
+    let should_recurse = matches!(entry.kind, EntryKind::Dir);
+    if is_visible_by_type(&entry, config) {
+        state.summary.add(&entry);
+        entries.push(entry);
+    }
+
+    if should_recurse {
+        subdirs.push(path);
+    }
+}
+
+/// エントリを隠しファイルや ignore ルールで除外するか判定する。
+fn should_skip_entry(path: &Path, name: &str, config: &Config) -> bool {
+    if !config.show_all && is_hidden_name(name) {
+        return true;
+    }
+
+    config.show_all
+        && !config.whole_all
+        && is_ignored_by_gitignore(path, path.is_dir(), config.debug)
+}
+
+/// 種別フィルタによりエントリが表示対象か判定する。
+fn is_visible_by_type(entry: &Entry, config: &Config) -> bool {
+    config
+        .type_filter
+        .is_none_or(|filter| entry.kind.matches_filter(filter))
+}
+
+/// ディレクトリ読み込みエラーを記録する。
+fn record_read_error(dir: &Path, error: io::Error, state: &mut RunState) {
+    state.had_error = true;
+    eprintln!("lsef: {}: {error}", dir.display());
+}
+
+/// メタデータ取得エラーを記録する。
+fn record_metadata_error(path: &Path, state: &mut RunState) {
+    state.had_error = true;
+    eprintln!("lsef: {}: could not read metadata", path.display());
+}
+
+/// 再帰設定に従って子ディレクトリを収集する。
+fn collect_child_dirs(
+    mut subdirs: Vec<PathBuf>,
+    depth: usize,
+    config: &Config,
+    sections: &mut Vec<Section>,
+    state: &mut RunState,
+) {
     if config.recursive && config.max_depth.is_none_or(|max| depth < max) {
         subdirs.sort_by(|left, right| path_name(left).cmp(&path_name(right)));
         for subdir in subdirs {
@@ -750,43 +904,7 @@ fn render_long_table(section: &Section, config: &Config, color_config: &ColorCon
     let rows = section
         .entries
         .iter()
-        .map(|entry| {
-            let perms = permissions(entry);
-            let links = entry
-                .links
-                .map(|links| links.to_string())
-                .unwrap_or_else(|| "N/A".to_string());
-            let owner = entry.owner.clone().unwrap_or_else(|| "N/A".to_string());
-            let group = entry.group.clone().unwrap_or_else(|| "N/A".to_string());
-            let size = format_size(entry.size, config.bytes);
-            let modified = format_time(entry.modified, config.time_format);
-            let git = entry.git_state.clone().unwrap_or_else(|| "-".to_string());
-            let name = display_name(entry, config, color_config);
-            let plain_name = raw_display_name(entry, config);
-
-            Row {
-                cells: vec![
-                    perms.clone(),
-                    links.clone(),
-                    owner.clone(),
-                    group.clone(),
-                    size.clone(),
-                    modified.clone(),
-                    git.clone(),
-                    name,
-                ],
-                widths: vec![
-                    perms.len(),
-                    links.len(),
-                    owner.len(),
-                    group.len(),
-                    size.len(),
-                    modified.len(),
-                    git.len(),
-                    plain_name.len(),
-                ],
-            }
-        })
+        .map(|entry| long_row(entry, config, color_config))
         .collect::<Vec<_>>();
 
     print_rows(
@@ -795,6 +913,44 @@ fn render_long_table(section: &Section, config: &Config, color_config: &ColorCon
         ],
         rows,
     );
+}
+
+/// ロング表示用の 1 行を作る。
+fn long_row(entry: &Entry, config: &Config, color_config: &ColorConfig) -> Row {
+    let cells = long_cells(entry, config, color_config);
+    let widths = long_widths(entry, config, &cells);
+    Row { cells, widths }
+}
+
+/// ロング表示用のセル文字列を作る。
+fn long_cells(entry: &Entry, config: &Config, color_config: &ColorConfig) -> Vec<String> {
+    vec![
+        permissions(entry),
+        link_count(entry),
+        entry.owner.clone().unwrap_or_else(|| "N/A".to_string()),
+        entry.group.clone().unwrap_or_else(|| "N/A".to_string()),
+        format_size(entry.size, config.bytes),
+        format_time(entry.modified, config.time_format),
+        entry.git_state.clone().unwrap_or_else(|| "-".to_string()),
+        display_name(entry, config, color_config),
+    ]
+}
+
+/// ロング表示用にハードリンク数を文字列化する。
+fn link_count(entry: &Entry) -> String {
+    entry
+        .links
+        .map(|links| links.to_string())
+        .unwrap_or_else(|| "N/A".to_string())
+}
+
+/// 色なしの値を使ってロング表示の列幅を求める。
+fn long_widths(entry: &Entry, config: &Config, cells: &[String]) -> Vec<usize> {
+    let mut widths = cells.iter().map(|cell| cell.len()).collect::<Vec<_>>();
+    if let Some(name_width) = widths.last_mut() {
+        *name_width = raw_display_name(entry, config).len();
+    }
+    widths
 }
 
 #[derive(Debug)]
@@ -854,7 +1010,7 @@ fn render_plain(sections: &[Section], config: &Config, color_config: &ColorConfi
 
 /// エントリを CSV として描画する。
 fn render_csv(sections: &[Section], config: &Config) {
-    println!("path,type,name,size,modified,sensitive,git");
+    println!("path,type,name,size,modified,sensitive,git_status");
     for section in sections {
         for entry in &section.entries {
             println!(
@@ -882,7 +1038,7 @@ fn render_json(sections: &[Section], config: &Config) {
             }
             first = false;
             print!(
-                "  {{\"path\":\"{}\",\"type\":\"{}\",\"name\":\"{}\",\"size\":{},\"modified\":\"{}\",\"sensitive\":{},\"git\":\"{}\"}}",
+                "  {{\"path\":\"{}\",\"type\":\"{}\",\"name\":\"{}\",\"size\":{},\"modified\":\"{}\",\"sensitive\":{},\"git_status\":\"{}\"}}",
                 json_escape(&entry.path.display().to_string()),
                 json_escape(entry.kind.label()),
                 json_escape(&entry.name),
@@ -913,7 +1069,7 @@ fn render_yaml(sections: &[Section], config: &Config) {
             );
             println!("  sensitive: {}", entry.sensitive);
             println!(
-                "  git: {}",
+                "  git_status: {}",
                 yaml_string(entry.git_state.as_deref().unwrap_or("-"))
             );
         }
@@ -965,24 +1121,25 @@ fn display_name(entry: &Entry, config: &Config, color_config: &ColorConfig) -> S
     color_config.paint(entry, &name, config.sensitive)
 }
 
-/// ファイル種別と拡張子から短い ASCII アイコンを選ぶ。
+/// ファイル種別と拡張子から短いアイコンを選ぶ。
 fn icon_for(entry: &Entry) -> &'static str {
     match entry.kind {
-        EntryKind::Dir => "[D]",
-        EntryKind::Link | EntryKind::BrokenLink => "[L]",
-        EntryKind::Executable => "[X]",
+        EntryKind::Dir => "📁",
+        EntryKind::Link | EntryKind::BrokenLink => "🔗",
+        EntryKind::Executable => "⚙️",
         EntryKind::File => match Path::new(&entry.name)
             .extension()
             .and_then(|extension| extension.to_str())
         {
-            Some("rs") => "[R]",
-            Some("toml") | Some("yaml") | Some("yml") | Some("json") => "[C]",
-            Some("md") | Some("txt") => "[T]",
-            Some("png") | Some("jpg") | Some("jpeg") | Some("gif") | Some("webp") => "[I]",
-            Some("zip") | Some("tar") | Some("gz") | Some("xz") => "[A]",
-            _ => "[F]",
+            Some("rs") => "🦀",
+            Some("toml") | Some("yaml") | Some("yml") | Some("json") => "⚙️",
+            Some("md") | Some("txt") => "📄",
+            Some("png") | Some("jpg") | Some("jpeg") | Some("gif") | Some("webp") => "🖼️",
+            Some("zip") | Some("tar") | Some("gz") | Some("xz") => "📦",
+            Some("pem") | Some("key") | Some("p12") | Some("pfx") => "🔐",
+            _ => "📄",
         },
-        EntryKind::Other => "[?]",
+        EntryKind::Other => "❓",
     }
 }
 
@@ -1006,11 +1163,11 @@ fn format_size(size: Option<u64>, bytes: bool) -> String {
     }
 
     if unit == 0 {
-        format!("{size}B")
+        format!("{size} B")
     } else if value >= 10.0 {
-        format!("{value:.0}{}", UNITS[unit])
+        format!("{value:.0} {}", UNITS[unit])
     } else {
-        format!("{value:.1}{}", UNITS[unit])
+        format!("{value:.1} {}", UNITS[unit])
     }
 }
 
@@ -1025,19 +1182,38 @@ fn format_time(time: Option<SystemTime>, format: TimeFormat) -> String {
         Err(error) => -(error.duration().as_secs() as TimeT),
     };
 
-    match unix_time_parts(seconds, matches!(format, TimeFormat::Local)) {
+    match unix_time_parts(seconds, true) {
         Some(parts) => match format {
             TimeFormat::Local => format!(
                 "{:04}-{:02}-{:02} {:02}:{:02}",
                 parts.year, parts.month, parts.day, parts.hour, parts.minute
             ),
             TimeFormat::Iso => format!(
-                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-                parts.year, parts.month, parts.day, parts.hour, parts.minute, parts.second
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}{}",
+                parts.year,
+                parts.month,
+                parts.day,
+                parts.hour,
+                parts.minute,
+                parts.second,
+                format_offset(parts.utc_offset_seconds)
             ),
         },
         None => seconds.to_string(),
     }
+}
+
+/// UTC オフセット秒を ISO 8601 のタイムゾーン表記へ変換する。
+fn format_offset(offset_seconds: Option<i32>) -> String {
+    let Some(offset_seconds) = offset_seconds else {
+        return "Z".to_string();
+    };
+
+    let sign = if offset_seconds < 0 { '-' } else { '+' };
+    let absolute = offset_seconds.abs();
+    let hours = absolute / 3600;
+    let minutes = absolute % 3600 / 60;
+    format!("{sign}{hours:02}:{minutes:02}")
 }
 
 #[cfg(unix)]
@@ -1054,6 +1230,7 @@ struct TimeParts {
     hour: i32,
     minute: i32,
     second: i32,
+    utc_offset_seconds: Option<i32>,
 }
 
 #[cfg(unix)]
@@ -1114,6 +1291,7 @@ fn unix_time_parts(seconds: TimeT, local: bool) -> Option<TimeParts> {
         hour: tm.tm_hour,
         minute: tm.tm_min,
         second: tm.tm_sec,
+        utc_offset_seconds: Some(tm.tm_gmtoff as i32),
     })
 }
 
@@ -1130,6 +1308,7 @@ fn unix_time_parts(seconds: TimeT, _local: bool) -> Option<TimeParts> {
         hour: (seconds_of_day / 3600) as i32,
         minute: (seconds_of_day % 3600 / 60) as i32,
         second: (seconds_of_day % 60) as i32,
+        utc_offset_seconds: None,
     })
 }
 
@@ -1272,7 +1451,7 @@ fn lookup_group(gid: u32) -> Option<String> {
 
 /// パスが Git リポジトリ内にある場合に簡易 Git 状態マーカーを返す。
 fn git_state(path: &Path) -> Option<String> {
-    find_git_root(path).map(|_| "repo".to_string())
+    find_git_root(path).map(|_| "-".to_string())
 }
 
 /// `.git` ディレクトリまたはファイルが見つかるまで親方向へたどる。
@@ -1414,6 +1593,16 @@ fn is_ignored_by_gitignore(path: &Path, is_dir: bool, debug: bool) -> bool {
 
 /// 親ディレクトリから `.gitignore` ルールを収集する。
 fn gitignore_rules_for(path: &Path) -> Vec<IgnoreRule> {
+    let mut rules = Vec::new();
+    for dir in parent_dirs(path) {
+        rules.extend(rules_from_gitignore(&dir));
+    }
+
+    rules
+}
+
+/// パスに適用される可能性のある親ディレクトリ一覧を返す。
+fn parent_dirs(path: &Path) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     let mut current = path.parent();
     while let Some(dir) = current {
@@ -1421,50 +1610,68 @@ fn gitignore_rules_for(path: &Path) -> Vec<IgnoreRule> {
         current = dir.parent();
     }
     dirs.reverse();
+    dirs
+}
 
-    let mut rules = Vec::new();
-    for dir in dirs {
-        let gitignore = dir.join(".gitignore");
-        let Ok(content) = fs::read_to_string(&gitignore) else {
-            continue;
-        };
+/// 1 つの `.gitignore` ファイルから ignore ルールを読み込む。
+fn rules_from_gitignore(dir: &Path) -> Vec<IgnoreRule> {
+    let gitignore = dir.join(".gitignore");
+    let Some(content) = read_gitignore(&gitignore) else {
+        return Vec::new();
+    };
 
-        for line in content.lines() {
-            let mut pattern = line.trim();
-            if pattern.is_empty() || pattern.starts_with('#') {
-                continue;
-            }
+    content
+        .lines()
+        .filter_map(|line| parse_ignore_rule(dir, line))
+        .collect()
+}
 
-            let negated = pattern.starts_with('!');
-            if negated {
-                pattern = pattern[1..].trim();
-            }
-
-            if pattern.is_empty() {
-                continue;
-            }
-
-            let dir_only = pattern.ends_with('/');
-            if dir_only {
-                pattern = pattern.trim_end_matches('/');
-            }
-
-            let pattern = pattern.trim_start_matches('/').to_string();
-            if pattern.is_empty() {
-                continue;
-            }
-
-            rules.push(IgnoreRule {
-                base: dir.clone(),
-                has_slash: pattern.contains('/'),
-                pattern,
-                negated,
-                dir_only,
-            });
+/// `.gitignore` を読み込み、読めない場合は警告して無視する。
+fn read_gitignore(gitignore: &Path) -> Option<String> {
+    match fs::read_to_string(gitignore) {
+        Ok(content) => Some(content),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+        Err(error) => {
+            eprintln!("lsef: {}: {error}", gitignore.display());
+            None
         }
     }
+}
 
-    rules
+/// `.gitignore` の 1 行を ignore ルールへ変換する。
+fn parse_ignore_rule(base: &Path, line: &str) -> Option<IgnoreRule> {
+    let mut pattern = line.trim();
+    if pattern.is_empty() || pattern.starts_with('#') {
+        return None;
+    }
+
+    let negated = pattern.starts_with('!');
+    if negated {
+        pattern = pattern[1..].trim();
+    }
+
+    build_ignore_rule(base, pattern, negated)
+}
+
+/// 整形済みパターンから ignore ルールを作る。
+fn build_ignore_rule(base: &Path, pattern: &str, negated: bool) -> Option<IgnoreRule> {
+    if pattern.is_empty() {
+        return None;
+    }
+
+    let dir_only = pattern.ends_with('/');
+    let pattern = pattern.trim_end_matches('/').trim_start_matches('/');
+    if pattern.is_empty() {
+        return None;
+    }
+
+    Some(IgnoreRule {
+        base: base.to_path_buf(),
+        has_slash: pattern.contains('/'),
+        pattern: pattern.to_string(),
+        negated,
+        dir_only,
+    })
 }
 
 impl IgnoreRule {
@@ -1605,7 +1812,7 @@ Options:
       --time-format <FMT>   Use local or iso time format
       --bytes               Show raw byte sizes
       --type <TYPE>         Filter by file, dir, or link
-      --output <MODE>       Use table or plain output
+      --output <FORMAT>     Use plain, table, csv, json, or yaml output
       --format <FORMAT>     Use plain, table, csv, json, or yaml output
       --icon                Prefix entries with compact type icons
       --summary             Print total counts and size
@@ -1624,10 +1831,10 @@ mod tests {
     /// 人間可読形式と生バイト数のサイズ整形を確認する。
     #[test]
     fn formats_sizes() {
-        assert_eq!(format_size(Some(0), false), "0B");
-        assert_eq!(format_size(Some(1023), false), "1023B");
-        assert_eq!(format_size(Some(1024), false), "1.0KB");
-        assert_eq!(format_size(Some(10 * 1024), false), "10KB");
+        assert_eq!(format_size(Some(0), false), "0 B");
+        assert_eq!(format_size(Some(1023), false), "1023 B");
+        assert_eq!(format_size(Some(1024), false), "1.0 KB");
+        assert_eq!(format_size(Some(10 * 1024), false), "10 KB");
         assert_eq!(format_size(Some(1536), true), "1536");
         assert_eq!(format_size(None, false), "N/A");
     }
