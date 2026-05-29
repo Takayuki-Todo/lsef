@@ -1866,46 +1866,49 @@ mod tests {
         assert!(!is_sensitive_name("main.rs"));
     }
 }
-    #[test]
-    fn split_long_option_and_value_for_and_parse_usize() {
-        let (name, val) = split_long_option("sort=name");
-        assert_eq!(name, "sort");
-        assert_eq!(val, Some("name".to_string()));
+#[test]
+fn split_long_option_and_value_for_and_parse_usize() {
+    let (name, val) = split_long_option("sort=name");
+    assert_eq!(name, "sort");
+    assert_eq!(val, Some("name".to_string()));
 
-        let (name, val) = split_long_option("help");
-        assert_eq!(name, "help");
-        assert_eq!(val, None);
+    let (name, val) = split_long_option("help");
+    assert_eq!(name, "help");
+    assert_eq!(val, None);
 
-        let mut iter = vec!["42".to_string()].into_iter().peekable();
-        assert_eq!(value_for("max-depth", None, &mut iter).unwrap(), "42".to_string());
+    let mut iter = vec!["42".to_string()].into_iter().peekable();
+    assert_eq!(
+        value_for("max-depth", None, &mut iter).unwrap(),
+        "42".to_string()
+    );
 
-        assert_eq!(parse_usize("n", "10").unwrap(), 10usize);
-        assert!(parse_usize("n", "x").is_err());
-    }
+    assert_eq!(parse_usize("n", "10").unwrap(), 10usize);
+    assert!(parse_usize("n", "x").is_err());
+}
 
-    #[test]
-    fn parse_time_type_output_and_default_output() {
-        assert_eq!(TimeFormat::parse("local").unwrap(), TimeFormat::Local);
-        assert_eq!(TimeFormat::parse("iso").unwrap(), TimeFormat::Iso);
-        assert!(TimeFormat::parse("unknown").is_err());
+#[test]
+fn parse_time_type_output_and_default_output() {
+    assert_eq!(TimeFormat::parse("local").unwrap(), TimeFormat::Local);
+    assert_eq!(TimeFormat::parse("iso").unwrap(), TimeFormat::Iso);
+    assert!(TimeFormat::parse("unknown").is_err());
 
-        assert_eq!(TypeFilter::parse("file").unwrap(), TypeFilter::File);
-        assert_eq!(TypeFilter::parse("dir").unwrap(), TypeFilter::Dir);
-        assert!(TypeFilter::parse("bad").is_err());
+    assert_eq!(TypeFilter::parse("file").unwrap(), TypeFilter::File);
+    assert_eq!(TypeFilter::parse("dir").unwrap(), TypeFilter::Dir);
+    assert!(TypeFilter::parse("bad").is_err());
 
-        assert_eq!(OutputMode::parse("table").unwrap(), OutputMode::Table);
-        assert_eq!(OutputMode::parse_format("json").unwrap(), OutputMode::Json);
-        assert!(OutputMode::parse("nope").is_err());
+    assert_eq!(OutputMode::parse("table").unwrap(), OutputMode::Table);
+    assert_eq!(OutputMode::parse_format("json").unwrap(), OutputMode::Json);
+    assert!(OutputMode::parse("nope").is_err());
 
-        assert_eq!(default_output(true), OutputMode::Table);
-        assert_eq!(default_output(false), OutputMode::Plain);
-    }
+    assert_eq!(default_output(true), OutputMode::Table);
+    assert_eq!(default_output(false), OutputMode::Plain);
+}
 
-    #[test]
-    fn entrykind_short_and_label() {
-        assert_eq!(EntryKind::File.short(), "F");
-        assert_eq!(EntryKind::Dir.short(), "D");
-        assert_eq!(EntryKind::Link.short(), "L");
-        assert_eq!(EntryKind::BrokenLink.label(), "link(broken)");
-        assert_eq!(EntryKind::Executable.label(), "exec");
-    }
+#[test]
+fn entrykind_short_and_label() {
+    assert_eq!(EntryKind::File.short(), "F");
+    assert_eq!(EntryKind::Dir.short(), "D");
+    assert_eq!(EntryKind::Link.short(), "L");
+    assert_eq!(EntryKind::BrokenLink.label(), "link(broken)");
+    assert_eq!(EntryKind::Executable.label(), "exec");
+}
