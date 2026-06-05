@@ -3,4 +3,11 @@ name = "lsef"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "lsef"
+path = "cli/main.rs"
+
 [dependencies]
