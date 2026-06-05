@@ -1,4 +1,4 @@
-use crate::args::{Config, OutputMode};
+use crate::args::{Config, OutputMode, TimeFormat};
 use crate::model::{Entry, FileKind, Listing, Section, Summary};
 use crate::time::format_system_time;
 
@@ -9,8 +9,8 @@ pub fn format_listing(listing: &Listing, config: &Config) -> String {
         OutputMode::Table => format_table(listing, config),
         OutputMode::Plain => format_plain(listing, config),
         OutputMode::Csv => format_csv(listing, config),
-        OutputMode::Json => format_json(listing, config),
-        OutputMode::Yaml => format_yaml(listing, config),
+        OutputMode::Json => format_json(listing, config.summary, config.time_format),
+        OutputMode::Yaml => format_yaml(listing, config.summary, config.time_format),
     };
     append_summary(&mut text, listing.summary, config);
     text
@@ -110,28 +110,30 @@ fn csv_row(section: &Section, entry: &Entry, config: &Config) -> String {
     )
 }
 
-/// JSON 出力全体を、セクション配列と summary を持つオブジェクトとして生成する。
+/// JSON 出力全体を、セクション配列と必要に応じた summary を持つオブジェクトとして生成する。
 /// 外部クレートなしの初期実装なので、文字列値は専用ヘルパーで最低限エスケープする。
-fn format_json(listing: &Listing, config: &Config) -> String {
+fn format_json(listing: &Listing, include_summary: bool, time_format: TimeFormat) -> String {
     let sections = listing
         .sections
         .iter()
-        .map(|section| json_section(section, config))
+        .map(|section| json_section(section, time_format))
         .collect::<Vec<_>>()
         .join(",");
-    format!(
-        "{{\"sections\":[{sections}],\"summary\":{}}}\n",
-        json_summary(listing.summary)
-    )
+    let summary = if include_summary {
+        format!(",\"summary\":{}", json_summary(listing.summary))
+    } else {
+        String::new()
+    };
+    format!("{{\"sections\":[{sections}]{summary}}}\n")
 }
 
 /// 1 セクションを JSON オブジェクト文字列へ変換する。
 /// セクションパスとエントリ配列をまとめ、親の `format_json` で連結できる単位にする。
-fn json_section(section: &Section, config: &Config) -> String {
+fn json_section(section: &Section, time_format: TimeFormat) -> String {
     let entries = section
         .entries
         .iter()
-        .map(|entry| json_entry(entry, config))
+        .map(|entry| json_entry(entry, time_format))
         .collect::<Vec<_>>()
         .join(",");
     format!(
@@ -143,8 +145,8 @@ fn json_section(section: &Section, config: &Config) -> String {
 
 /// 1 エントリを JSON オブジェクト文字列へ変換する。
 /// 表示名・種別・サイズ・時刻・機密判定を含め、他ツールで必要な基本情報を揃える。
-fn json_entry(entry: &Entry, config: &Config) -> String {
-    let time = format_system_time(entry.modified, config.time_format);
+fn json_entry(entry: &Entry, time_format: TimeFormat) -> String {
+    let time = format_system_time(entry.modified, time_format);
     format!(
         "{{\"name\":\"{}\",\"type\":\"{}\",\"size\":{},\"modified\":\"{}\",\"sensitive\":{}}}",
         json_escape(&entry.name),
@@ -164,34 +166,36 @@ fn json_summary(summary: Summary) -> String {
     )
 }
 
-/// YAML 風出力全体を、sections と summary のトップレベルキーで生成する。
+/// YAML 風出力全体を、sections と必要に応じた summary のトップレベルキーで生成する。
 /// 厳密な YAML ライブラリは使わず、基本的な scalar エスケープで読みやすさを優先する。
-fn format_yaml(listing: &Listing, config: &Config) -> String {
+fn format_yaml(listing: &Listing, include_summary: bool, time_format: TimeFormat) -> String {
     let mut rows = vec!["sections:".to_string()];
     for section in &listing.sections {
-        push_yaml_section(&mut rows, section, config);
+        push_yaml_section(&mut rows, section, time_format);
     }
-    rows.extend(yaml_summary(listing.summary));
+    if include_summary {
+        rows.extend(yaml_summary(listing.summary));
+    }
     finish_lines(rows)
 }
 
 /// YAML 風出力の行バッファへ 1 セクション分を追加する。
 /// セクション見出しと配下エントリを同じ関数で追加し、インデント規則を一箇所に閉じ込める。
-fn push_yaml_section(rows: &mut Vec<String>, section: &Section, config: &Config) {
+fn push_yaml_section(rows: &mut Vec<String>, section: &Section, time_format: TimeFormat) {
     rows.push(format!(
         "- path: {}",
         yaml_scalar(&section.path.display().to_string())
     ));
     rows.push("  entries:".to_string());
     for entry in &section.entries {
-        rows.extend(yaml_entry(entry, config));
+        rows.extend(yaml_entry(entry, time_format));
     }
 }
 
 /// 1 エントリを YAML 風の複数行へ変換する。
 /// 名前や時刻は scalar としてエスケープし、種別・サイズ・機密判定は読みやすく固定順に並べる。
-fn yaml_entry(entry: &Entry, config: &Config) -> Vec<String> {
-    let time = format_system_time(entry.modified, config.time_format);
+fn yaml_entry(entry: &Entry, time_format: TimeFormat) -> Vec<String> {
+    let time = format_system_time(entry.modified, time_format);
     vec![
         format!("  - name: {}", yaml_scalar(&entry.name)),
         format!("    type: {}", entry.kind.name()),
@@ -202,7 +206,7 @@ fn yaml_entry(entry: &Entry, config: &Config) -> Vec<String> {
 }
 
 /// summary を YAML 風の複数行へ変換する。
-/// テーブルや plain の追加 summary と違い、YAML/JSON では常に構造の一部として含める。
+/// `--summary` 指定時だけ構造の一部として含める。
 fn yaml_summary(summary: Summary) -> Vec<String> {
     vec![
         "summary:".to_string(),
@@ -212,10 +216,15 @@ fn yaml_summary(summary: Summary) -> Vec<String> {
     ]
 }
 
-/// table/plain/csv 出力の末尾に、要求された場合だけ summary 行を追加する。
-/// JSON/YAML は構造化出力に既に summary を含むため、重複しないようここでは追加しない。
+/// table/plain 出力の末尾に、要求された場合だけ summary 行を追加する。
+/// CSV/JSON/YAML は構造化出力なので、自由形式の行を追加して形式を壊さないようにする。
 fn append_summary(text: &mut String, summary: Summary, config: &Config) {
-    if !config.summary || matches!(config.output, OutputMode::Json | OutputMode::Yaml) {
+    if !config.summary
+        || matches!(
+            config.output,
+            OutputMode::Csv | OutputMode::Json | OutputMode::Yaml
+        )
+    {
         return;
     }
     text.push_str(&format!(
@@ -431,6 +440,7 @@ mod tests {
             ..Config::default()
         };
         assert!(format_listing(&listing(), &config).contains("\"sections\""));
+        assert!(!format_listing(&listing(), &config).contains("\"summary\""));
     }
 
     /// plain 出力が装飾済みファイル名を 1 行ずつ返すことを確認する。
@@ -455,7 +465,7 @@ mod tests {
         assert!(output.contains(".,file,note.txt,7,N/A,false\n"));
     }
 
-    /// YAML 風出力が sections と summary を構造として含むことを確認する。
+    /// YAML 風出力が sections を構造として含むことを確認する。
     #[test]
     fn formats_yaml_listing() {
         let config = Config {
@@ -464,7 +474,7 @@ mod tests {
         };
         let output = format_listing(&listing(), &config);
         assert!(output.contains("sections:\n- path: .\n  entries:\n"));
-        assert!(output.contains("summary:\n  files: 1\n"));
+        assert!(!output.contains("summary:\n"));
     }
 
     /// long table では短い種別ラベルではなく読みやすい種別名を出すことを確認する。
@@ -493,6 +503,43 @@ mod tests {
             ..Config::default()
         };
         assert!(format_listing(&listing(), &config).contains("summary: files=1"));
+    }
+
+    /// CSV では `--summary` 指定時も自由形式の summary 行を追加せず、列構造を保つ。
+    #[test]
+    fn does_not_append_text_summary_to_csv() {
+        let config = Config {
+            output: OutputMode::Csv,
+            summary: true,
+            ..Config::default()
+        };
+        let output = format_listing(&listing(), &config);
+        assert!(!output.contains("summary:"));
+        assert_eq!(output.lines().count(), 2);
+    }
+
+    /// JSON/YAML では `--summary` 指定時だけ構造化 summary を含める。
+    #[test]
+    fn includes_structured_summary_when_requested() {
+        let json = format_listing(
+            &listing(),
+            &Config {
+                output: OutputMode::Json,
+                summary: true,
+                ..Config::default()
+            },
+        );
+        assert!(json.contains("\"summary\""));
+
+        let yaml = format_listing(
+            &listing(),
+            &Config {
+                output: OutputMode::Yaml,
+                summary: true,
+                ..Config::default()
+            },
+        );
+        assert!(yaml.contains("summary:\n  files: 1\n"));
     }
 
     /// `--bytes` 相当の設定では、人間可読形式ではなくバイト値を出すことを確認する。
