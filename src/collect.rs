@@ -471,6 +471,77 @@ mod tests {
         assert_eq!(names(&listing), vec!["large.txt", "small.txt"]);
     }
 
+    /// 単一ファイルを直接指定したとき、親ディレクトリをセクションとして 1 件だけ収集することを確認する。
+    #[test]
+    fn collects_single_file_path() {
+        let dir = TempDir::new("single");
+        dir.file("single.txt", "one");
+        let path = dir.path().join("single.txt");
+        let listing = collect_listing(&config_for(path));
+        assert_eq!(listing.sections.len(), 1);
+        assert_eq!(listing.sections[0].path, dir.path());
+        assert_eq!(names(&listing), vec!["single.txt"]);
+    }
+
+    /// 拡張子ソートでは、拡張子なし、rs、txt の順に並ぶことを確認する。
+    #[test]
+    fn sorts_by_extension() {
+        let dir = TempDir::new("extension");
+        dir.file("notes.txt", "text");
+        dir.file("README", "readme");
+        dir.file("lib.rs", "rust");
+        let listing = collect_listing(&Config {
+            sort_key: SortKey::Extension,
+            ..config_for(dir.path())
+        });
+        assert_eq!(names(&listing), vec!["README", "lib.rs", "notes.txt"]);
+    }
+
+    /// `--max-depth 0` 相当では、再帰指定があっても子ディレクトリのセクションを作らないことを確認する。
+    #[test]
+    fn max_depth_zero_stops_recursion() {
+        let dir = TempDir::new("depth");
+        dir.dir("sub");
+        dir.file("sub/nested.txt", "nested");
+        let listing = collect_listing(&Config {
+            recursive: true,
+            max_depth: Some(0),
+            ..config_for(dir.path())
+        });
+        assert_eq!(listing.sections.len(), 1);
+        assert!(!names(&listing).contains(&"nested.txt".to_string()));
+    }
+
+    /// `.gitignore` のコメント、否定行、ディレクトリ専用、全一致ワイルドカードの基本挙動を確認する。
+    #[test]
+    fn parses_basic_ignore_patterns() {
+        let dir = TempDir::new("ignore-patterns");
+        dir.file(".gitignore", "# comment\n!keep.txt\nignored-dir/\n*\n");
+        dir.file("keep.txt", "kept by negation being ignored");
+        dir.dir("ignored-dir");
+        dir.file("ignored-dir/file.txt", "ignored directory");
+        let listing = collect_listing(&Config {
+            include_hidden: true,
+            ..config_for(dir.path())
+        });
+        assert!(names(&listing).is_empty());
+    }
+
+    #[cfg(unix)]
+    /// Unix 環境で有効なシンボリックリンクを `--type link` で抽出できることを確認する。
+    #[test]
+    fn filters_valid_symlinks_as_links() {
+        let dir = TempDir::new("valid-link");
+        dir.file("target.txt", "target");
+        std::os::unix::fs::symlink("target.txt", dir.path().join("link.txt")).unwrap();
+        let listing = collect_listing(&Config {
+            type_filter: Some(TypeFilter::Link),
+            ..config_for(dir.path())
+        });
+        assert_eq!(names(&listing), vec!["link.txt"]);
+        assert_eq!(listing.sections[0].entries[0].kind, FileKind::Symlink);
+    }
+
     #[cfg(unix)]
     /// Unix 環境でリンク先が存在しないシンボリックリンクを壊れたリンクとして分類できることを確認する。
     #[test]
@@ -479,6 +550,30 @@ mod tests {
         std::os::unix::fs::symlink("missing", dir.path().join("broken")).unwrap();
         let listing = collect_listing(&config_for(dir.path()));
         assert_eq!(listing.sections[0].entries[0].kind, FileKind::BrokenSymlink);
+    }
+
+    #[cfg(unix)]
+    /// Unix 環境で実行ビットのある通常ファイルを実行可能ファイルとして分類することを確認する。
+    #[test]
+    fn classifies_executable_files() {
+        let dir = TempDir::new("exec");
+        dir.file("tool.sh", "#!/bin/sh\n");
+        dir.set_mode("tool.sh", 0o755);
+        let listing = collect_listing(&config_for(dir.path()));
+        assert_eq!(listing.sections[0].entries[0].kind, FileKind::Executable);
+    }
+
+    #[cfg(unix)]
+    /// 読み取り権限のないディレクトリでは、panic せずエラーを記録して空一覧にすることを確認する。
+    #[test]
+    fn records_unreadable_directory_errors() {
+        let dir = TempDir::new("unreadable");
+        dir.dir("locked");
+        dir.set_mode("locked", 0o000);
+        let listing = collect_listing(&config_for(dir.path().join("locked")));
+        dir.set_mode("locked", 0o755);
+        assert!(listing.sections[0].entries.is_empty());
+        assert!(listing.errors[0].contains("cannot read directory"));
     }
 
     /// テスト用ディレクトリだけを対象にした最小設定を作る。
@@ -530,6 +625,15 @@ mod tests {
         /// 再帰走査テストで階層を作るための短い補助関数である。
         fn dir(&self, name: &str) {
             fs::create_dir_all(self.path.join(name)).unwrap();
+        }
+
+        #[cfg(unix)]
+        /// 一時ディレクトリ配下のファイルまたはディレクトリの Unix パーミッションを変更する。
+        /// 実行可能ファイルや読めないディレクトリのテストで、OS の種別判定に近い状態を作る。
+        fn set_mode(&self, name: &str, mode: u32) {
+            use std::os::unix::fs::PermissionsExt;
+            let permissions = fs::Permissions::from_mode(mode);
+            fs::set_permissions(self.path.join(name), permissions).unwrap();
         }
     }
 

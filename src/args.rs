@@ -435,11 +435,139 @@ mod tests {
         assert_eq!(config.output, OutputMode::Json);
     }
 
+    /// `--` 以降がオプションではなくパスとして保持されることを確認する。
+    #[test]
+    fn treats_arguments_after_double_dash_as_paths() {
+        let config = parse_args(["lsef", "--", "-looks-like-option"]).expect("parse paths");
+        assert_eq!(config.paths, vec![PathBuf::from("-looks-like-option")]);
+    }
+
+    /// 長いフラグ形式のオプション群が、それぞれの設定値へ反映されることを確認する。
+    #[test]
+    fn parses_long_flags() {
+        let config = parse_args([
+            "lsef",
+            "--whole-all",
+            "--long",
+            "--reverse",
+            "--recursive",
+            "--bytes",
+            "--icon",
+            "--summary",
+            "--sensitive",
+        ])
+        .expect("parse long flags");
+        assert!(config.include_hidden);
+        assert!(config.include_ignored);
+        assert!(config.long);
+        assert!(config.reverse);
+        assert!(config.recursive);
+        assert!(config.bytes);
+        assert!(config.icon);
+        assert!(config.summary);
+        assert!(config.sensitive);
+    }
+
+    /// `--all` は隠しファイルを表示しつつ ignore は維持する設定になることを確認する。
+    #[test]
+    fn parses_all_without_ignored_files() {
+        let config = parse_args(["lsef", "--all"]).expect("parse all");
+        assert!(config.include_hidden);
+        assert!(!config.include_ignored);
+    }
+
+    /// まだ未確認だった短いオプション群を、連結形式でまとめて確認する。
+    #[test]
+    fn parses_remaining_short_flags() {
+        let config = parse_args(["lsef", "-ARSt"]).expect("parse remaining short flags");
+        assert!(config.include_hidden);
+        assert!(config.include_ignored);
+        assert!(config.recursive);
+        assert_eq!(config.sort_key, SortKey::Time);
+    }
+
+    /// `--type` が file/dir/link を内部フィルタへ変換することを確認する。
+    #[test]
+    fn parses_type_filter_values() {
+        let file = parse_args(["lsef", "--type", "file"]).expect("parse file type");
+        let dir = parse_args(["lsef", "--type", "dir"]).expect("parse dir type");
+        let link = parse_args(["lsef", "--type", "link"]).expect("parse link type");
+        assert_eq!(file.type_filter, Some(TypeFilter::File));
+        assert_eq!(dir.type_filter, Some(TypeFilter::Directory));
+        assert_eq!(link.type_filter, Some(TypeFilter::Link));
+    }
+
+    /// YAML 出力モードと `--format` エイリアスの組み合わせが受け付けられることを確認する。
+    #[test]
+    fn parses_format_alias_for_yaml() {
+        let config = parse_args(["lsef", "--format", "yaml"]).expect("parse yaml format");
+        assert_eq!(config.output, OutputMode::Yaml);
+    }
+
     /// 未知のソートキーを指定したとき、引数エラーとして扱われることを確認する。
     #[test]
     fn reports_invalid_sort_value() {
         let error = parse_args(["lsef", "--sort", "unknown"]).expect_err("invalid sort");
         assert!(matches!(error, CliError::Message(_)));
+    }
+
+    /// 値が必要なオプションに値がない場合、引数エラーになることを確認する。
+    #[test]
+    fn reports_missing_option_value() {
+        let error = parse_args(["lsef", "--sort"]).expect_err("missing value");
+        assert!(matches!(error, CliError::Message(message) if message == "missing option value"));
+    }
+
+    /// 未知の長いオプションが、明示的なエラーメッセージになることを確認する。
+    #[test]
+    fn reports_unknown_long_option() {
+        let error = parse_args(["lsef", "--mystery"]).expect_err("unknown long option");
+        assert!(
+            matches!(error, CliError::Message(message) if message == "unknown option: --mystery")
+        );
+    }
+
+    /// 未知の短いオプションが、明示的なエラーメッセージになることを確認する。
+    #[test]
+    fn reports_unknown_short_option() {
+        let error = parse_args(["lsef", "-z"]).expect_err("unknown short option");
+        assert!(matches!(error, CliError::Message(message) if message == "unknown option: -z"));
+    }
+
+    /// 時刻フォーマットの不正値が、対象オプション名付きのエラーになることを確認する。
+    #[test]
+    fn reports_invalid_time_format() {
+        let error = parse_args(["lsef", "--time-format", "clock"]).expect_err("invalid time");
+        assert!(
+            matches!(error, CliError::Message(message) if message == "invalid --time-format value: clock")
+        );
+    }
+
+    /// 出力形式の不正値が、対象オプション名付きのエラーになることを確認する。
+    #[test]
+    fn reports_invalid_output_format() {
+        let error = parse_args(["lsef", "--output", "xml"]).expect_err("invalid output");
+        assert!(
+            matches!(error, CliError::Message(message) if message == "invalid --output value: xml")
+        );
+    }
+
+    /// 種別フィルタの不正値が、対象オプション名付きのエラーになることを確認する。
+    #[test]
+    fn reports_invalid_type_filter() {
+        let error = parse_args(["lsef", "--type", "socket"]).expect_err("invalid type");
+        assert!(
+            matches!(error, CliError::Message(message) if message == "invalid --type value: socket")
+        );
+    }
+
+    /// 深さ制限の不正値が、対象オプション名付きのエラーになることを確認する。
+    #[test]
+    fn reports_invalid_max_depth() {
+        let error = parse_args(["lsef", "--max-depth", "deep"]).expect_err("invalid depth");
+        assert!(
+            matches!(error, CliError::Message(message) if message == "invalid --max-depth value: deep")
+        );
     }
 
     /// `--help` がエラーではなく成功結果へ変換される特別扱いを確認する。

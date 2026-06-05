@@ -433,6 +433,58 @@ mod tests {
         assert!(format_listing(&listing(), &config).contains("\"sections\""));
     }
 
+    /// plain 出力が装飾済みファイル名を 1 行ずつ返すことを確認する。
+    #[test]
+    fn formats_plain_listing() {
+        let config = Config {
+            output: OutputMode::Plain,
+            ..Config::default()
+        };
+        assert_eq!(format_listing(&listing(), &config), "note.txt\n");
+    }
+
+    /// CSV 出力がヘッダーと各エントリの構造化行を含むことを確認する。
+    #[test]
+    fn formats_csv_listing() {
+        let config = Config {
+            output: OutputMode::Csv,
+            ..Config::default()
+        };
+        let output = format_listing(&listing(), &config);
+        assert!(output.starts_with("path,type,name,size,modified,sensitive\n"));
+        assert!(output.contains(".,file,note.txt,7,N/A,false\n"));
+    }
+
+    /// YAML 風出力が sections と summary を構造として含むことを確認する。
+    #[test]
+    fn formats_yaml_listing() {
+        let config = Config {
+            output: OutputMode::Yaml,
+            ..Config::default()
+        };
+        let output = format_listing(&listing(), &config);
+        assert!(output.contains("sections:\n- path: .\n  entries:\n"));
+        assert!(output.contains("summary:\n  files: 1\n"));
+    }
+
+    /// long table では短い種別ラベルではなく読みやすい種別名を出すことを確認する。
+    #[test]
+    fn formats_long_table_rows() {
+        let config = Config {
+            long: true,
+            ..Config::default()
+        };
+        assert!(format_listing(&listing(), &config).starts_with("file"));
+    }
+
+    /// 複数セクションがある場合だけ、各セクション見出しが出ることを確認する。
+    #[test]
+    fn formats_section_headings_for_multiple_sections() {
+        let output = format_listing(&two_section_listing(), &Config::default());
+        assert!(output.contains("left:\n"));
+        assert!(output.contains("right:\n"));
+    }
+
     /// `--summary` 相当の設定で、plain/table 系出力の末尾に集計行が付くことを確認する。
     #[test]
     fn appends_plain_summary_when_requested() {
@@ -441,6 +493,16 @@ mod tests {
             ..Config::default()
         };
         assert!(format_listing(&listing(), &config).contains("summary: files=1"));
+    }
+
+    /// `--bytes` 相当の設定では、人間可読形式ではなくバイト値を出すことを確認する。
+    #[test]
+    fn formats_raw_byte_sizes() {
+        let config = Config {
+            bytes: true,
+            ..Config::default()
+        };
+        assert!(format_listing(&listing(), &config).contains("7  N/A"));
     }
 
     /// 機密候補マーカーが `--sensitive` 相当の設定時だけ表示されることを確認する。
@@ -465,6 +527,60 @@ mod tests {
         assert!(output.contains("\x1b[32mnote.txt\x1b[0m"));
     }
 
+    /// 種別ごとのアイコン風プレフィックスが、dir/link/exec/file に対応することを確認する。
+    #[test]
+    fn applies_icons_by_file_kind() {
+        let config = Config {
+            icon: true,
+            ..Config::default()
+        };
+        let output = format_listing(&kind_listing(), &config);
+        assert!(output.contains("[D] dir"));
+        assert!(output.contains("[L] link"));
+        assert!(output.contains("[X] run"));
+        assert!(output.contains("[F] note.txt"));
+    }
+
+    /// `LS_COLORS` の種別ルールが、拡張子ルールより優先して適用されることを確認する。
+    #[test]
+    fn applies_kind_colors_from_ls_colors() {
+        let config = Config {
+            color_spec: Some("di=34:ln=36:ex=31".to_string()),
+            ..Config::default()
+        };
+        let output = format_listing(&kind_listing(), &config);
+        assert!(output.contains("\x1b[34mdir\x1b[0m"));
+        assert!(output.contains("\x1b[36mlink\x1b[0m"));
+        assert!(output.contains("\x1b[31mrun\x1b[0m"));
+    }
+
+    /// CSV エスケープが不要な値は、そのまま返ることを確認する。
+    #[test]
+    fn leaves_simple_csv_fields_unquoted() {
+        assert_eq!(csv_escape("plain"), "plain");
+    }
+
+    /// JSON 文字列エスケープが、代表的な制御文字と引用符を変換することを確認する。
+    #[test]
+    fn escapes_json_string_characters() {
+        assert_eq!(json_escape("\"\\\n\r\t"), "\\\"\\\\\\n\\r\\t");
+    }
+
+    /// YAML 風 scalar が安全な値は裸で、空白や引用符を含む値は引用符付きで返すことを確認する。
+    #[test]
+    fn formats_yaml_scalars() {
+        assert_eq!(yaml_scalar("src/main.rs"), "src/main.rs");
+        assert_eq!(yaml_scalar("two words"), "\"two words\"");
+        assert_eq!(yaml_scalar("say\"hi"), "\"say\\\"hi\"");
+    }
+
+    /// エントリがない一覧では、余計な改行を含まない空文字出力になることを確認する。
+    #[test]
+    fn formats_empty_listing_without_newline() {
+        let output = format_listing(&empty_listing(), &Config::default());
+        assert!(output.is_empty());
+    }
+
     /// 整形テストで共有する、1 ファイルだけを含む最小の `Listing` を作る。
     /// summary も手で埋め、表示関数が集計済みデータをどう扱うかを検証しやすくする。
     fn listing() -> Listing {
@@ -482,13 +598,74 @@ mod tests {
         }
     }
 
+    /// 複数セクション表示を確認するための 2 セクション一覧を作る。
+    /// 各セクションに 1 件ずつ置くことで、見出しと行の両方を検証できる。
+    fn two_section_listing() -> Listing {
+        Listing {
+            sections: vec![
+                Section {
+                    path: PathBuf::from("left"),
+                    entries: vec![entry()],
+                },
+                Section {
+                    path: PathBuf::from("right"),
+                    entries: vec![entry_with("other.txt", FileKind::File)],
+                },
+            ],
+            summary: Summary {
+                files: 2,
+                directories: 0,
+                total_size: 14,
+            },
+            errors: Vec::new(),
+        }
+    }
+
+    /// 種別ごとの表示分岐を確認するため、主要な種別を含む一覧を作る。
+    /// アイコンと色のテストで同じデータを使い、表示機能ごとの差だけを見る。
+    fn kind_listing() -> Listing {
+        Listing {
+            sections: vec![Section {
+                path: PathBuf::from("."),
+                entries: vec![
+                    entry_with("dir", FileKind::Directory),
+                    entry_with("link", FileKind::Symlink),
+                    entry_with("run", FileKind::Executable),
+                    entry(),
+                ],
+            }],
+            summary: Summary {
+                files: 3,
+                directories: 1,
+                total_size: 28,
+            },
+            errors: Vec::new(),
+        }
+    }
+
+    /// エントリがない場合の出力を確認するための空一覧を作る。
+    /// summary も 0 にして、表示関数が行を追加しない経路を通せるようにする。
+    fn empty_listing() -> Listing {
+        Listing {
+            sections: Vec::new(),
+            summary: Summary::default(),
+            errors: Vec::new(),
+        }
+    }
+
     /// 整形テスト用の標準的なファイルエントリを作る。
     /// mtime は `None` にして、時刻表示の揺れを避けた決定的な出力にする。
     fn entry() -> Entry {
+        entry_with("note.txt", FileKind::File)
+    }
+
+    /// 名前と種別だけを差し替えた整形テスト用エントリを作る。
+    /// サイズや時刻は固定し、表示分岐以外の要素で出力が揺れないようにする。
+    fn entry_with(name: &str, kind: FileKind) -> Entry {
         Entry {
-            path: PathBuf::from("note.txt"),
-            name: "note.txt".to_string(),
-            kind: FileKind::File,
+            path: PathBuf::from(name),
+            name: name.to_string(),
+            kind,
             size: 7,
             modified: None,
             sensitive: false,

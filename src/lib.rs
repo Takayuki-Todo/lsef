@@ -91,6 +91,15 @@ mod tests {
         assert!(result.stderr.contains("invalid --sort value"));
     }
 
+    /// 正常な一覧取得では code 0、空の stderr、対象名を含む stdout が返ることを確認する。
+    #[test]
+    fn successful_run_returns_stdout_without_stderr() {
+        let result = run_from_args(["lsef", "--output", "plain", "Cargo.toml"]);
+        assert_eq!(result.code, 0);
+        assert_eq!(result.stderr, "");
+        assert_eq!(result.stdout, "Cargo.toml\n");
+    }
+
     /// 存在しないパスでも panic せず、処理結果として I/O エラーを返すことを確認する。
     #[test]
     fn missing_paths_are_reported_without_panic() {

@@ -108,3 +108,75 @@ fn add_entry_to_summary(entry: &Entry, summary: &mut Summary) {
     }
     summary.total_size += entry.size;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 全ファイル種別が短いラベルと長い種別名へ安定して変換されることを確認する。
+    #[test]
+    fn exposes_labels_and_names_for_all_file_kinds() {
+        let cases = [
+            (FileKind::File, "F", "file"),
+            (FileKind::Directory, "D", "dir"),
+            (FileKind::Symlink, "L", "link"),
+            (FileKind::BrokenSymlink, "LB", "link(broken)"),
+            (FileKind::Executable, "X", "exec"),
+            (FileKind::Other, "O", "other"),
+        ];
+        for (kind, label, name) in cases {
+            assert_eq!(kind.label(), label);
+            assert_eq!(kind.name(), name);
+        }
+    }
+
+    /// summary がディレクトリとそれ以外のエントリを分け、サイズを合算することを確認する。
+    #[test]
+    fn summarizes_directories_files_and_total_size() {
+        let sections = vec![Section {
+            path: PathBuf::from("."),
+            entries: vec![
+                entry("src", FileKind::Directory, 10),
+                entry("main.rs", FileKind::File, 20),
+                entry("run", FileKind::Executable, 30),
+            ],
+        }];
+        let summary = summarize_sections(&sections);
+        assert_eq!(
+            summary,
+            Summary {
+                files: 2,
+                directories: 1,
+                total_size: 60
+            }
+        );
+    }
+
+    /// `ListingBuilder::finish` がエラーを残しつつ、表示対象から summary を計算することを確認する。
+    #[test]
+    fn listing_builder_finishes_with_summary_and_errors() {
+        let builder = ListingBuilder {
+            sections: vec![Section {
+                path: PathBuf::from("."),
+                entries: vec![entry("src", FileKind::Directory, 5)],
+            }],
+            errors: vec!["permission denied".to_string()],
+        };
+        let listing = builder.finish();
+        assert_eq!(listing.summary.directories, 1);
+        assert_eq!(listing.errors, vec!["permission denied"]);
+    }
+
+    /// モデル層のテスト用に、必要なフィールドだけを変えたエントリを作る。
+    /// mtime と機密判定は summary やラベル変換に関係しないため固定値にする。
+    fn entry(name: &str, kind: FileKind, size: u64) -> Entry {
+        Entry {
+            path: PathBuf::from(name),
+            name: name.to_string(),
+            kind,
+            size,
+            modified: None,
+            sensitive: false,
+        }
+    }
+}
