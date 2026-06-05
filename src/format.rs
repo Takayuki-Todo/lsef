@@ -358,6 +358,35 @@ mod tests {
         assert!(format_listing(&listing(), &config).contains("\"sections\""));
     }
 
+    #[test]
+    fn appends_plain_summary_when_requested() {
+        let config = Config {
+            summary: true,
+            ..Config::default()
+        };
+        assert!(format_listing(&listing(), &config).contains("summary: files=1"));
+    }
+
+    #[test]
+    fn marks_sensitive_entries_only_when_requested() {
+        let config = Config {
+            sensitive: true,
+            ..Config::default()
+        };
+        let output = format_listing(&sensitive_listing(), &config);
+        assert!(output.contains(".env !"));
+    }
+
+    #[test]
+    fn applies_extension_color_from_ls_colors() {
+        let config = Config {
+            color_spec: Some("*.txt=32".to_string()),
+            ..Config::default()
+        };
+        let output = format_listing(&listing(), &config);
+        assert!(output.contains("\x1b[32mnote.txt\x1b[0m"));
+    }
+
     fn listing() -> Listing {
         Listing {
             sections: vec![Section {
@@ -382,5 +411,12 @@ mod tests {
             modified: None,
             sensitive: false,
         }
+    }
+
+    fn sensitive_listing() -> Listing {
+        let mut listing = listing();
+        listing.sections[0].entries[0].name = ".env".to_string();
+        listing.sections[0].entries[0].sensitive = true;
+        listing
     }
 }

@@ -334,3 +334,54 @@ Options:
 ";
     text.to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_to_current_directory() {
+        let config = parse_args(["lsef"]).expect("parse defaults");
+        assert_eq!(config.paths, vec![PathBuf::from(".")]);
+    }
+
+    #[test]
+    fn parses_short_flags_and_paths() {
+        let config = parse_args(["lsef", "-alr", "src"]).expect("parse short flags");
+        assert!(config.include_hidden);
+        assert!(config.long);
+        assert!(config.reverse);
+        assert_eq!(config.paths, vec![PathBuf::from("src")]);
+    }
+
+    #[test]
+    fn parses_value_options() {
+        let config = parse_args([
+            "lsef",
+            "--sort=size",
+            "--max-depth",
+            "2",
+            "--time-format",
+            "iso",
+            "--output",
+            "json",
+        ])
+        .expect("parse value options");
+        assert_eq!(config.sort_key, SortKey::Size);
+        assert_eq!(config.max_depth, Some(2));
+        assert_eq!(config.time_format, TimeFormat::Iso);
+        assert_eq!(config.output, OutputMode::Json);
+    }
+
+    #[test]
+    fn reports_invalid_sort_value() {
+        let error = parse_args(["lsef", "--sort", "unknown"]).expect_err("invalid sort");
+        assert!(matches!(error, CliError::Message(_)));
+    }
+
+    #[test]
+    fn help_returns_success_result() {
+        let error = parse_args(["lsef", "--help"]).expect_err("help");
+        assert_eq!(error.into_result().code, 0);
+    }
+}

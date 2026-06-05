@@ -34,6 +34,7 @@ fn collect_directory(path: &Path, config: &Config, builder: &mut ListingBuilder,
     let mut entries = read_entries(path, config, &mut builder.errors);
     sort_entries(&mut entries, config);
     let dirs = child_directories(&entries);
+    entries.retain(|entry| type_matches(entry, config.type_filter));
     builder.sections.push(Section {
         path: path.to_path_buf(),
         entries,
@@ -73,7 +74,7 @@ fn should_include(entry: &Entry, config: &Config, matcher: &IgnoreMatcher) -> bo
     if matcher.is_ignored(&entry.name, entry.kind) {
         return false;
     }
-    type_matches(entry, config.type_filter)
+    true
 }
 
 fn type_matches(entry: &Entry, filter: Option<TypeFilter>) -> bool {
@@ -313,5 +314,137 @@ fn wildcard_matches(pattern: &str, name: &str) -> bool {
     match pattern.split_once('*') {
         Some((start, end)) => name.starts_with(start) && name.ends_with(end),
         None => pattern == name,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::args::{SortKey, TypeFilter};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn hides_hidden_files_by_default() {
+        let dir = TempDir::new("hidden");
+        dir.file("visible.txt", "ok");
+        dir.file(".secret", "hidden");
+        let listing = collect_listing(&config_for(dir.path()));
+        assert_eq!(names(&listing), vec!["visible.txt"]);
+    }
+
+    #[test]
+    fn all_respects_gitignore_by_default() {
+        let dir = TempDir::new("ignore");
+        dir.file(".gitignore", "ignored.txt\n*.log\n");
+        dir.file(".env", "secret");
+        dir.file("ignored.txt", "skip");
+        dir.file("trace.log", "skip");
+        let listing = collect_listing(&Config {
+            include_hidden: true,
+            ..config_for(dir.path())
+        });
+        assert_eq!(names(&listing), vec![".env", ".gitignore"]);
+    }
+
+    #[test]
+    fn whole_all_ignores_gitignore_rules() {
+        let dir = TempDir::new("whole");
+        dir.file(".gitignore", "ignored.txt\n");
+        dir.file("ignored.txt", "show");
+        let listing = collect_listing(&Config {
+            include_hidden: true,
+            include_ignored: true,
+            ..config_for(dir.path())
+        });
+        assert!(names(&listing).contains(&"ignored.txt".to_string()));
+    }
+
+    #[test]
+    fn recursive_type_filter_still_descends() {
+        let dir = TempDir::new("recursive");
+        dir.dir("sub");
+        dir.file("sub/nested.txt", "nested");
+        let listing = collect_listing(&Config {
+            recursive: true,
+            type_filter: Some(TypeFilter::File),
+            ..config_for(dir.path())
+        });
+        assert!(names(&listing).contains(&"nested.txt".to_string()));
+    }
+
+    #[test]
+    fn sorts_by_size_in_reverse_order() {
+        let dir = TempDir::new("sort");
+        dir.file("small.txt", "1");
+        dir.file("large.txt", "1234");
+        let listing = collect_listing(&Config {
+            sort_key: SortKey::Size,
+            reverse: true,
+            ..config_for(dir.path())
+        });
+        assert_eq!(names(&listing), vec!["large.txt", "small.txt"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn classifies_broken_symlink() {
+        let dir = TempDir::new("link");
+        std::os::unix::fs::symlink("missing", dir.path().join("broken")).unwrap();
+        let listing = collect_listing(&config_for(dir.path()));
+        assert_eq!(listing.sections[0].entries[0].kind, FileKind::BrokenSymlink);
+    }
+
+    fn config_for(path: PathBuf) -> Config {
+        Config {
+            paths: vec![path],
+            ..Config::default()
+        }
+    }
+
+    fn names(listing: &Listing) -> Vec<String> {
+        listing
+            .sections
+            .iter()
+            .flat_map(|section| &section.entries)
+            .map(|entry| entry.name.clone())
+            .collect()
+    }
+
+    struct TempDir {
+        path: PathBuf,
+    }
+
+    impl TempDir {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(unique_name(label));
+            fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+
+        fn path(&self) -> PathBuf {
+            self.path.clone()
+        }
+
+        fn file(&self, name: &str, text: &str) {
+            fs::write(self.path.join(name), text).unwrap();
+        }
+
+        fn dir(&self, name: &str) {
+            fs::create_dir_all(self.path.join(name)).unwrap();
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn unique_name(label: &str) -> String {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        format!("lsef-{label}-{}-{nanos}", std::process::id())
     }
 }

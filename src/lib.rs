@@ -57,3 +57,30 @@ fn format_errors(errors: &[String]) -> String {
     text.push('\n');
     text
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn help_is_returned_as_stdout() {
+        let result = run_from_args(["lsef", "--help"]);
+        assert_eq!(result.code, 0);
+        assert!(result.stdout.contains("lsef [OPTIONS]"));
+        assert!(result.stderr.is_empty());
+    }
+
+    #[test]
+    fn cli_argument_errors_use_code_two() {
+        let result = run_from_args(["lsef", "--sort", "bad"]);
+        assert_eq!(result.code, 2);
+        assert!(result.stderr.contains("invalid --sort value"));
+    }
+
+    #[test]
+    fn missing_paths_are_reported_without_panic() {
+        let result = run_from_args(["lsef", "definitely-missing-lsef-path"]);
+        assert_eq!(result.code, 1);
+        assert!(result.stderr.contains("definitely-missing-lsef-path"));
+    }
+}
