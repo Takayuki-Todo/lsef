@@ -1,6 +1,8 @@
 use crate::args::TimeFormat;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// `SystemTime` を設定された表示形式の文字列へ変換する。
+/// mtime が取得できない場合や Unix epoch より前の時刻は `N/A` とし、一覧表示を継続する。
 pub fn format_system_time(time: Option<SystemTime>, format: TimeFormat) -> String {
     let Some(parts) = time.and_then(time_parts) else {
         return "N/A".to_string();
@@ -11,6 +13,8 @@ pub fn format_system_time(time: Option<SystemTime>, format: TimeFormat) -> Strin
     }
 }
 
+/// `SystemTime` を UTC ベースの日付・時刻部品へ分解する。
+/// 標準ライブラリだけで動かすため、epoch からの日数と秒数に分けて手元の構造体へ落とす。
 fn time_parts(time: SystemTime) -> Option<DateParts> {
     let seconds = time.duration_since(UNIX_EPOCH).ok()?.as_secs();
     let days = (seconds / 86_400) as i64;
@@ -19,6 +23,9 @@ fn time_parts(time: SystemTime) -> Option<DateParts> {
     Some(DateParts::new(year, month, day, seconds_of_day))
 }
 
+/// Unix epoch からの日数をグレゴリオ暦の年月日へ変換する。
+/// Howard Hinnant の civil date 変換として知られる計算を使い、外部クレートなしで
+/// 固定フォーマットの年月日を得る。
 fn civil_from_days(days: i64) -> (i32, u32, u32) {
     let z = days + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -36,6 +43,8 @@ fn civil_from_days(days: i64) -> (i32, u32, u32) {
     )
 }
 
+/// 日付部品を `YYYY-MM-DD HH:MM` の短いローカル風表示へ整形する。
+/// 実装は UTC 部品を使うが、CLI 仕様で求める固定幅表示を満たすための人間向け形式である。
 fn format_local(parts: DateParts) -> String {
     format!(
         "{:04}-{:02}-{:02} {:02}:{:02}",
@@ -43,6 +52,8 @@ fn format_local(parts: DateParts) -> String {
     )
 }
 
+/// 日付部品を秒まで含む ISO 8601 風の文字列へ整形する。
+/// 末尾に `Z` を付け、UTC ベースの値であることが読み取れるようにする。
 fn format_iso(parts: DateParts) -> String {
     format!(
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
@@ -61,6 +72,8 @@ struct DateParts {
 }
 
 impl DateParts {
+    /// 年月日と 1 日内の秒数から、表示に必要な日付部品を組み立てる。
+    /// 時・分・秒は除算と剰余で分解し、フォーマッタ側が同じ構造を使えるようにする。
     fn new(year: i32, month: u32, day: u32, seconds: u64) -> Self {
         Self {
             year,
@@ -78,6 +91,7 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
+    /// Unix epoch が固定幅のローカル風表示に変換される基本ケースを確認する。
     #[test]
     fn formats_unix_epoch_as_fixed_local_shape() {
         let time = UNIX_EPOCH + Duration::from_secs(0);
@@ -87,6 +101,7 @@ mod tests {
         );
     }
 
+    /// 秒まで含む ISO 風表示で、時・分・秒の分解が正しいことを確認する。
     #[test]
     fn formats_iso_with_seconds() {
         let time = UNIX_EPOCH + Duration::from_secs(3661);

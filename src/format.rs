@@ -2,6 +2,8 @@ use crate::args::{Config, OutputMode};
 use crate::model::{Entry, FileKind, Listing, Section, Summary};
 use crate::time::format_system_time;
 
+/// 収集済みの一覧を、設定された出力形式の文字列へ変換する。
+/// ここでは標準出力へ直接書かず、CLI でもテストでも同じ返り値として扱えるようにする。
 pub fn format_listing(listing: &Listing, config: &Config) -> String {
     let mut text = match config.output {
         OutputMode::Table => format_table(listing, config),
@@ -14,6 +16,8 @@ pub fn format_listing(listing: &Listing, config: &Config) -> String {
     text
 }
 
+/// 人間が読みやすいテーブル形式で全セクションを整形する。
+/// 複数パスや再帰時にはセクション見出しを挟み、各行は `table_row` に委譲する。
 fn format_table(listing: &Listing, config: &Config) -> String {
     let mut rows = Vec::new();
     for section in &listing.sections {
@@ -23,6 +27,8 @@ fn format_table(listing: &Listing, config: &Config) -> String {
     finish_lines(rows)
 }
 
+/// 1 つのセクション内のエントリをテーブル行の文字列列へ変換する。
+/// 幅合わせや long 表示の切替は、個別行を作る `table_row` が担当する。
 fn table_rows(section: &Section, config: &Config) -> Vec<String> {
     section
         .entries
@@ -31,6 +37,8 @@ fn table_rows(section: &Section, config: &Config) -> Vec<String> {
         .collect()
 }
 
+/// 1 エントリ分のテーブル行を組み立てる。
+/// `--long` の有無で種別ラベルの長さを変え、サイズと時刻は表示設定に従って整形する。
 fn table_row(entry: &Entry, config: &Config) -> String {
     let name = decorate_name(entry, config, true);
     let size = format_size(entry.size, config.bytes);
@@ -42,6 +50,8 @@ fn table_row(entry: &Entry, config: &Config) -> String {
     }
 }
 
+/// スクリプト向けの最小表示として、名前だけを 1 行ずつ並べる。
+/// テーブル同様に複数セクションでは見出しを付け、対象パスの境界を失わないようにする。
 fn format_plain(listing: &Listing, config: &Config) -> String {
     let mut rows = Vec::new();
     for section in &listing.sections {
@@ -51,6 +61,8 @@ fn format_plain(listing: &Listing, config: &Config) -> String {
     finish_lines(rows)
 }
 
+/// 1 セクションのエントリ名を plain 出力用の行へ変換する。
+/// アイコン・機密マーカー・色は名前装飾として table と同じ経路を使う。
 fn plain_rows(section: &Section, config: &Config) -> Vec<String> {
     section
         .entries
@@ -59,6 +71,8 @@ fn plain_rows(section: &Section, config: &Config) -> Vec<String> {
         .collect()
 }
 
+/// CSV 出力全体を生成し、先頭に固定ヘッダー行を付ける。
+/// 他ツールで扱いやすいよう、サイズは常にバイト値、時刻は設定された表示形式にする。
 fn format_csv(listing: &Listing, config: &Config) -> String {
     let mut rows = vec!["path,type,name,size,modified,sensitive".to_string()];
     for section in &listing.sections {
@@ -67,6 +81,8 @@ fn format_csv(listing: &Listing, config: &Config) -> String {
     finish_lines(rows)
 }
 
+/// 1 セクションの全エントリを CSV レコードへ変換する。
+/// セクションパスを各行に含めるため、再帰や複数パスでも由来を追える。
 fn csv_rows(section: &Section, config: &Config) -> Vec<String> {
     section
         .entries
@@ -75,6 +91,8 @@ fn csv_rows(section: &Section, config: &Config) -> Vec<String> {
         .collect()
 }
 
+/// 1 エントリ分の CSV レコードを生成する。
+/// カンマ・引用符・改行を含む値は `csv_escape` で保護し、単純な CSV として読める形にする。
 fn csv_row(section: &Section, entry: &Entry, config: &Config) -> String {
     let time = format_system_time(entry.modified, config.time_format);
     let fields = [
@@ -92,6 +110,8 @@ fn csv_row(section: &Section, entry: &Entry, config: &Config) -> String {
     )
 }
 
+/// JSON 出力全体を、セクション配列と summary を持つオブジェクトとして生成する。
+/// 外部クレートなしの初期実装なので、文字列値は専用ヘルパーで最低限エスケープする。
 fn format_json(listing: &Listing, config: &Config) -> String {
     let sections = listing
         .sections
@@ -105,6 +125,8 @@ fn format_json(listing: &Listing, config: &Config) -> String {
     )
 }
 
+/// 1 セクションを JSON オブジェクト文字列へ変換する。
+/// セクションパスとエントリ配列をまとめ、親の `format_json` で連結できる単位にする。
 fn json_section(section: &Section, config: &Config) -> String {
     let entries = section
         .entries
@@ -119,6 +141,8 @@ fn json_section(section: &Section, config: &Config) -> String {
     )
 }
 
+/// 1 エントリを JSON オブジェクト文字列へ変換する。
+/// 表示名・種別・サイズ・時刻・機密判定を含め、他ツールで必要な基本情報を揃える。
 fn json_entry(entry: &Entry, config: &Config) -> String {
     let time = format_system_time(entry.modified, config.time_format);
     format!(
@@ -131,6 +155,8 @@ fn json_entry(entry: &Entry, config: &Config) -> String {
     )
 }
 
+/// summary を JSON オブジェクト文字列へ変換する。
+/// 数値だけで構成されるため、文字列エスケープは不要でそのまま整形する。
 fn json_summary(summary: Summary) -> String {
     format!(
         "{{\"files\":{},\"directories\":{},\"total_size\":{}}}",
@@ -138,6 +164,8 @@ fn json_summary(summary: Summary) -> String {
     )
 }
 
+/// YAML 風出力全体を、sections と summary のトップレベルキーで生成する。
+/// 厳密な YAML ライブラリは使わず、基本的な scalar エスケープで読みやすさを優先する。
 fn format_yaml(listing: &Listing, config: &Config) -> String {
     let mut rows = vec!["sections:".to_string()];
     for section in &listing.sections {
@@ -147,6 +175,8 @@ fn format_yaml(listing: &Listing, config: &Config) -> String {
     finish_lines(rows)
 }
 
+/// YAML 風出力の行バッファへ 1 セクション分を追加する。
+/// セクション見出しと配下エントリを同じ関数で追加し、インデント規則を一箇所に閉じ込める。
 fn push_yaml_section(rows: &mut Vec<String>, section: &Section, config: &Config) {
     rows.push(format!(
         "- path: {}",
@@ -158,6 +188,8 @@ fn push_yaml_section(rows: &mut Vec<String>, section: &Section, config: &Config)
     }
 }
 
+/// 1 エントリを YAML 風の複数行へ変換する。
+/// 名前や時刻は scalar としてエスケープし、種別・サイズ・機密判定は読みやすく固定順に並べる。
 fn yaml_entry(entry: &Entry, config: &Config) -> Vec<String> {
     let time = format_system_time(entry.modified, config.time_format);
     vec![
@@ -169,6 +201,8 @@ fn yaml_entry(entry: &Entry, config: &Config) -> Vec<String> {
     ]
 }
 
+/// summary を YAML 風の複数行へ変換する。
+/// テーブルや plain の追加 summary と違い、YAML/JSON では常に構造の一部として含める。
 fn yaml_summary(summary: Summary) -> Vec<String> {
     vec![
         "summary:".to_string(),
@@ -178,6 +212,8 @@ fn yaml_summary(summary: Summary) -> Vec<String> {
     ]
 }
 
+/// table/plain/csv 出力の末尾に、要求された場合だけ summary 行を追加する。
+/// JSON/YAML は構造化出力に既に summary を含むため、重複しないようここでは追加しない。
 fn append_summary(text: &mut String, summary: Summary, config: &Config) {
     if !config.summary || matches!(config.output, OutputMode::Json | OutputMode::Yaml) {
         return;
@@ -190,12 +226,16 @@ fn append_summary(text: &mut String, summary: Summary, config: &Config) {
     ));
 }
 
+/// 複数セクションがある場合だけ、セクションパスの見出し行を追加する。
+/// 単一ディレクトリの通常利用では余計な見出しを出さず、`ls` に近い見た目を保つ。
 fn push_section_heading(rows: &mut Vec<String>, section: &Section, count: usize) {
     if count > 1 {
         rows.push(format!("{}:", section.path.display()));
     }
 }
 
+/// 表示名へアイコン、機密マーカー、色を順に適用する。
+/// 出力形式ごとの行生成から名前装飾を切り離し、table と plain で同じ見た目を共有する。
 fn decorate_name(entry: &Entry, config: &Config, color: bool) -> String {
     let mut name = format!(
         "{}{}{}",
@@ -209,6 +249,8 @@ fn decorate_name(entry: &Entry, config: &Config, color: bool) -> String {
     name
 }
 
+/// `--icon` が有効な場合に、種別に応じた短いアイコン風プレフィックスを返す。
+/// Unicode アイコンではなく ASCII 表記にして、端末やテスト環境の差を避ける。
 fn icon(entry: &Entry, config: &Config) -> &'static str {
     if !config.icon {
         return "";
@@ -221,6 +263,8 @@ fn icon(entry: &Entry, config: &Config) -> &'static str {
     }
 }
 
+/// `--sensitive` が有効で機密候補のエントリにだけ警告マーカーを返す。
+/// 検出結果自体は収集層で持ち、表示するかどうかをここで設定に従って決める。
 fn marker(entry: &Entry, config: &Config) -> &'static str {
     if config.sensitive && entry.sensitive {
         " !"
@@ -229,6 +273,8 @@ fn marker(entry: &Entry, config: &Config) -> &'static str {
     }
 }
 
+/// `LS_COLORS` 由来の色コードが見つかった場合、名前を ANSI エスケープで包む。
+/// 色設定がない、または該当ルールがない場合は元の名前をそのまま返す。
 fn colorize_name(name: String, entry: &Entry, config: &Config) -> String {
     let Some(code) = color_code(entry, config) else {
         return name;
@@ -236,11 +282,15 @@ fn colorize_name(name: String, entry: &Entry, config: &Config) -> String {
     format!("\x1b[{code}m{name}\x1b[0m")
 }
 
+/// エントリに適用する ANSI 色コードを、種別ルール優先で探す。
+/// 種別に該当しない通常ファイルでは、拡張子ルールを次に試す。
 fn color_code(entry: &Entry, config: &Config) -> Option<String> {
     let spec = config.color_spec.as_deref()?;
     kind_color(entry.kind, spec).or_else(|| extension_color(&entry.name, spec))
 }
 
+/// `LS_COLORS` の `di`、`ln`、`ex` など種別キーに対応する色コードを探す。
+/// 色付け対象外の種別では `None` を返し、拡張子ルールへフォールバックできるようにする。
 fn kind_color(kind: FileKind, spec: &str) -> Option<String> {
     let key = match kind {
         FileKind::Directory => "di",
@@ -251,11 +301,15 @@ fn kind_color(kind: FileKind, spec: &str) -> Option<String> {
     color_value(spec, key)
 }
 
+/// ファイル名の拡張子から `LS_COLORS` の `*.ext` ルールを探す。
+/// 拡張子がない名前では `None` を返し、無色表示にする。
 fn extension_color(name: &str, spec: &str) -> Option<String> {
     let extension = name.rsplit_once('.')?.1;
     color_value(spec, &format!("*.{extension}"))
 }
 
+/// `LS_COLORS` 形式の `key=value` 群から、指定キーの値だけを取り出す。
+/// 解析はコロン区切りと等号区切りの最小対応に留め、未知の断片は無視する。
 fn color_value(spec: &str, key: &str) -> Option<String> {
     spec.split(':').find_map(|part| {
         let (left, right) = part.split_once('=')?;
@@ -263,6 +317,8 @@ fn color_value(spec: &str, key: &str) -> Option<String> {
     })
 }
 
+/// サイズを設定に従って、バイト生値または人間可読形式へ変換する。
+/// `--bytes` が有効な場合は機械処理しやすいよう単位を付けず数値だけにする。
 fn format_size(size: u64, bytes: bool) -> String {
     if bytes {
         return size.to_string();
@@ -270,6 +326,8 @@ fn format_size(size: u64, bytes: bool) -> String {
     human_size(size)
 }
 
+/// バイト数を B/KB/MB/GB/TB の人間可読形式へ変換する。
+/// 1024 ごとに単位を上げ、上位単位では小数 1 桁を残して概況を掴みやすくする。
 fn human_size(size: u64) -> String {
     let units = ["B", "KB", "MB", "GB", "TB"];
     let mut amount = size as f64;
@@ -281,6 +339,8 @@ fn human_size(size: u64) -> String {
     format_human_amount(amount, units[index])
 }
 
+/// 単位変換後の数値と単位を、表示用の文字列へ整形する。
+/// B 単位だけは小数を出さず、KB 以上では `1.0KB` のように桁を揃える。
 fn format_human_amount(amount: f64, unit: &str) -> String {
     if unit == "B" {
         format!("{}B", amount as u64)
@@ -289,6 +349,8 @@ fn format_human_amount(amount: f64, unit: &str) -> String {
     }
 }
 
+/// CSV フィールドに必要な最低限のクォートと引用符エスケープを行う。
+/// カンマ・引用符・改行を含まない値は、読みやすさのためそのまま返す。
 fn csv_escape(value: &str) -> String {
     if value.contains([',', '"', '\n']) {
         return format!("\"{}\"", value.replace('"', "\"\""));
@@ -296,10 +358,14 @@ fn csv_escape(value: &str) -> String {
     value.to_string()
 }
 
+/// JSON 文字列値として危険な文字を 1 文字ずつエスケープする。
+/// 手書き JSON 生成の範囲を限定し、呼び出し側は文字列値だけここに通す。
 fn json_escape(value: &str) -> String {
     value.chars().flat_map(json_char).collect()
 }
 
+/// JSON 文字列中の 1 文字を、必要ならエスケープ列へ変換する。
+/// 戻り値を `Vec<char>` にして、通常文字と `\\n` のような 2 文字列を同じ経路で扱う。
 fn json_char(ch: char) -> Vec<char> {
     match ch {
         '"' => vec!['\\', '"'],
@@ -311,6 +377,8 @@ fn json_char(ch: char) -> Vec<char> {
     }
 }
 
+/// YAML 風出力の scalar 値を、裸で出せる場合はそのまま、それ以外は引用符付きにする。
+/// 空文字や記号を含む値で構造が壊れないよう、必要な場合だけダブルクォートを使う。
 fn yaml_scalar(value: &str) -> String {
     if value.chars().all(is_bare_yaml_char) && !value.is_empty() {
         return value.to_string();
@@ -318,10 +386,14 @@ fn yaml_scalar(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\\\""))
 }
 
+/// YAML 風 scalar を裸で出してよい安全な文字かを判定する。
+/// 英数字とファイルパスでよく使う一部記号だけに絞り、曖昧な文字は引用へ回す。
 fn is_bare_yaml_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || matches!(ch, '.' | '/' | '_' | '-')
 }
 
+/// 行ベクタを改行区切りの出力文字列へ変換する。
+/// 空出力では空文字を返し、行がある場合だけ末尾改行を付けて CLI 出力らしい形にする。
 fn finish_lines(rows: Vec<String>) -> String {
     if rows.is_empty() {
         return String::new();
@@ -338,17 +410,20 @@ mod tests {
     use crate::model::{Entry, FileKind, Listing, Section, Summary};
     use std::path::PathBuf;
 
+    /// 人間可読サイズの境界として、1023B と 1024B の単位切替を確認する。
     #[test]
     fn formats_human_size_boundaries() {
         assert_eq!(human_size(1023), "1023B");
         assert_eq!(human_size(1024), "1.0KB");
     }
 
+    /// カンマを含む CSV フィールドがクォートされ、列数を壊さないことを確認する。
     #[test]
     fn escapes_csv_fields_with_commas() {
         assert_eq!(csv_escape("a,b"), "\"a,b\"");
     }
 
+    /// JSON 出力がトップレベルの sections を含む構造化文字列になることを確認する。
     #[test]
     fn formats_json_listing() {
         let config = Config {
@@ -358,6 +433,7 @@ mod tests {
         assert!(format_listing(&listing(), &config).contains("\"sections\""));
     }
 
+    /// `--summary` 相当の設定で、plain/table 系出力の末尾に集計行が付くことを確認する。
     #[test]
     fn appends_plain_summary_when_requested() {
         let config = Config {
@@ -367,6 +443,7 @@ mod tests {
         assert!(format_listing(&listing(), &config).contains("summary: files=1"));
     }
 
+    /// 機密候補マーカーが `--sensitive` 相当の設定時だけ表示されることを確認する。
     #[test]
     fn marks_sensitive_entries_only_when_requested() {
         let config = Config {
@@ -377,6 +454,7 @@ mod tests {
         assert!(output.contains(".env !"));
     }
 
+    /// `LS_COLORS` の拡張子ルールから ANSI カラーが適用されることを確認する。
     #[test]
     fn applies_extension_color_from_ls_colors() {
         let config = Config {
@@ -387,6 +465,8 @@ mod tests {
         assert!(output.contains("\x1b[32mnote.txt\x1b[0m"));
     }
 
+    /// 整形テストで共有する、1 ファイルだけを含む最小の `Listing` を作る。
+    /// summary も手で埋め、表示関数が集計済みデータをどう扱うかを検証しやすくする。
     fn listing() -> Listing {
         Listing {
             sections: vec![Section {
@@ -402,6 +482,8 @@ mod tests {
         }
     }
 
+    /// 整形テスト用の標準的なファイルエントリを作る。
+    /// mtime は `None` にして、時刻表示の揺れを避けた決定的な出力にする。
     fn entry() -> Entry {
         Entry {
             path: PathBuf::from("note.txt"),
@@ -413,6 +495,8 @@ mod tests {
         }
     }
 
+    /// 標準のテスト用一覧を、機密候補ファイルを含む形に変換する。
+    /// 既存の `listing` を再利用し、機密マーカー表示だけに焦点を当てる。
     fn sensitive_listing() -> Listing {
         let mut listing = listing();
         listing.sections[0].entries[0].name = ".env".to_string();
