@@ -4,6 +4,8 @@
 [![Coverage Status](https://coveralls.io/repos/github/Takayuki-Todo/lsef/badge.svg?branch=main)](https://coveralls.io/github/Takayuki-Todo/lsef?branch=main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+[English](./README.md) | [日本語](./README.ja.md)
+
 lsef (List Extended Features) is a Rust-based file listing tool inspired by ls.
 
 ## Overview
