@@ -1,0 +1,17 @@
+baseURL = "https://Takayuki-Todo.github.io/lsef/"
+
+locale = "ja-JP"
+
+title = "LSEF Documentation"
+
+[module]
+
+  [[module.imports]]
+
+    path = "github.com/alex-shpak/hugo-book"
+
+[params]
+
+  BookTheme = "auto"
+
+  BookSearch = true
