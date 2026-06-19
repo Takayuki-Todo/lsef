@@ -1,0 +1,15 @@
+{
+  "name": "LSEF Documentation",
+  "short_name": "LSEF Documentation",
+  "start_url": "/lsef/",
+  "scope": "/lsef/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/lsef/favicon.svg",
+      "sizes": "512x512"
+    }
+  ]
+}
