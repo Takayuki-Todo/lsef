@@ -1,6 +1,7 @@
 mod args;
 mod collect;
 mod format;
+mod gencomp;
 mod model;
 mod time;
 
@@ -40,6 +41,14 @@ where
         Err(error) => return error.into_result(),
     };
     config.color_spec = colors;
+    if config.completions {
+        gencomp::generate(std::path::Path::new("completions"));
+        return AppResult {
+            stdout: "generated completion files in completions\n".to_string(),
+            stderr: String::new(),
+            code: 0,
+        };
+    }
     run(config)
 }
 

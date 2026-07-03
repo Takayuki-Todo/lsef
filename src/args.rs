@@ -1,4 +1,5 @@
 use crate::AppResult;
+use clap::{Arg, ArgAction, Command, ValueHint};
 use std::ffi::OsString;
 use std::path::PathBuf;
 
@@ -19,6 +20,7 @@ pub struct Config {
     pub icon: bool,
     pub summary: bool,
     pub sensitive: bool,
+    pub completions: bool,
     pub color_spec: Option<String>,
 }
 
@@ -79,6 +81,7 @@ impl Default for Config {
             icon: false,
             summary: false,
             sensitive: false,
+            completions: false,
             color_spec: None,
         }
     }
@@ -173,6 +176,7 @@ fn consume_long(
         "icon" => set_flag(&mut config.icon),
         "summary" => set_flag(&mut config.summary),
         "sensitive" => set_flag(&mut config.sensitive),
+        "completions" => set_flag(&mut config.completions),
         "sort" => value_option(args, index, inline, parse_sort, config),
         "max-depth" => value_option(args, index, inline, parse_depth, config),
         "time-format" => value_option(args, index, inline, parse_time, config),
@@ -390,8 +394,147 @@ Options:
       --icon                prefix names with icons
       --summary             append totals
       --sensitive           mark likely sensitive files
+      --completions         generate completion files
 ";
     text.to_string()
+}
+
+/// `clap_complete` に渡すための CLI 定義を作る。
+/// 実際の引数解析は手書きパーサで行い、ここでは補完候補だけを管理する。
+pub(crate) fn completion_command() -> Command {
+    Command::new("lsef")
+        .bin_name("lsef")
+        .disable_help_flag(true)
+        .arg(
+            Arg::new("all")
+                .short('a')
+                .long("all")
+                .help("include hidden files")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("whole-all")
+                .short('A')
+                .long("whole-all")
+                .help("include hidden and ignored files")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("long")
+                .short('l')
+                .long("long")
+                .help("show extended table columns")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("sort")
+                .long("sort")
+                .value_name("KEY")
+                .help("sort by name, size, time, or extension")
+                .value_parser(["name", "size", "time", "extension", "ext"]),
+        )
+        .arg(
+            Arg::new("sort-size")
+                .short('S')
+                .help("sort by size")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("sort-time")
+                .short('t')
+                .help("sort by modification time")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("reverse")
+                .short('r')
+                .long("reverse")
+                .help("reverse primary sort order")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("recursive")
+                .short('R')
+                .long("recursive")
+                .help("walk subdirectories")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("max-depth")
+                .long("max-depth")
+                .value_name("N")
+                .help("limit recursive depth"),
+        )
+        .arg(
+            Arg::new("time-format")
+                .long("time-format")
+                .value_name("MODE")
+                .help("local or iso")
+                .value_parser(["local", "iso"]),
+        )
+        .arg(
+            Arg::new("bytes")
+                .long("bytes")
+                .help("show raw byte sizes")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("type")
+                .long("type")
+                .value_name("KIND")
+                .help("file, dir, directory, or link")
+                .value_parser(["file", "dir", "directory", "link"]),
+        )
+        .arg(
+            Arg::new("output")
+                .long("output")
+                .value_name("MODE")
+                .help("table, plain, csv, json, or yaml")
+                .value_parser(["table", "plain", "csv", "json", "yaml"]),
+        )
+        .arg(
+            Arg::new("format")
+                .long("format")
+                .value_name("MODE")
+                .help("alias for --output")
+                .value_parser(["table", "plain", "csv", "json", "yaml"]),
+        )
+        .arg(
+            Arg::new("icon")
+                .long("icon")
+                .help("prefix names with icons")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("summary")
+                .long("summary")
+                .help("append totals")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("sensitive")
+                .long("sensitive")
+                .help("mark likely sensitive files")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("completions")
+                .long("completions")
+                .help("generate completion files")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("help")
+                .long("help")
+                .help("print help")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("paths")
+                .value_name("PATH")
+                .num_args(0..)
+                .value_hint(ValueHint::AnyPath),
+        )
 }
 
 #[cfg(test)]
@@ -466,6 +609,13 @@ mod tests {
         assert!(config.icon);
         assert!(config.summary);
         assert!(config.sensitive);
+    }
+
+    /// `--completions` が補完ファイル生成用のフラグとして読み取られることを確認する。
+    #[test]
+    fn parses_completions_flag() {
+        let config = parse_args(["lsef", "--completions"]).expect("parse completions");
+        assert!(config.completions);
     }
 
     /// `--all` は隠しファイルを表示しつつ ignore は維持する設定になることを確認する。
