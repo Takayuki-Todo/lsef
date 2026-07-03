@@ -1,0 +1,35 @@
+complete -c lsef -l sort -d 'sort by name, size, time, or extension' -r -f -a "name\t''
+size\t''
+time\t''
+extension\t''
+ext\t''"
+complete -c lsef -l max-depth -d 'limit recursive depth' -r
+complete -c lsef -l time-format -d 'local or iso' -r -f -a "local\t''
+iso\t''"
+complete -c lsef -l type -d 'file, dir, directory, or link' -r -f -a "file\t''
+dir\t''
+directory\t''
+link\t''"
+complete -c lsef -l output -d 'table, plain, csv, json, or yaml' -r -f -a "table\t''
+plain\t''
+csv\t''
+json\t''
+yaml\t''"
+complete -c lsef -l format -d 'alias for --output' -r -f -a "table\t''
+plain\t''
+csv\t''
+json\t''
+yaml\t''"
+complete -c lsef -s a -l all -d 'include hidden files'
+complete -c lsef -s A -l whole-all -d 'include hidden and ignored files'
+complete -c lsef -s l -l long -d 'show extended table columns'
+complete -c lsef -s S -d 'sort by size'
+complete -c lsef -s t -d 'sort by modification time'
+complete -c lsef -s r -l reverse -d 'reverse primary sort order'
+complete -c lsef -s R -l recursive -d 'walk subdirectories'
+complete -c lsef -l bytes -d 'show raw byte sizes'
+complete -c lsef -l icon -d 'prefix names with icons'
+complete -c lsef -l summary -d 'append totals'
+complete -c lsef -l sensitive -d 'mark likely sensitive files'
+complete -c lsef -l completions -d 'generate completion files'
+complete -c lsef -l help -d 'print help'

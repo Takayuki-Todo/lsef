@@ -1,0 +1,56 @@
+#compdef lsef
+
+autoload -U is-at-least
+
+_lsef() {
+    typeset -A opt_args
+    typeset -a _arguments_options
+    local ret=1
+
+    if is-at-least 5.2; then
+        _arguments_options=(-s -S -C)
+    else
+        _arguments_options=(-s -C)
+    fi
+
+    local context curcontext="$curcontext" state line
+    _arguments "${_arguments_options[@]}" : \
+'--sort=[sort by name, size, time, or extension]:KEY:(name size time extension ext)' \
+'--max-depth=[limit recursive depth]:N:_default' \
+'--time-format=[local or iso]:MODE:(local iso)' \
+'--type=[file, dir, directory, or link]:KIND:(file dir directory link)' \
+'--output=[table, plain, csv, json, or yaml]:MODE:(table plain csv json yaml)' \
+'--format=[alias for --output]:MODE:(table plain csv json yaml)' \
+'-a[include hidden files]' \
+'--all[include hidden files]' \
+'-A[include hidden and ignored files]' \
+'--whole-all[include hidden and ignored files]' \
+'-l[show extended table columns]' \
+'--long[show extended table columns]' \
+'-S[sort by size]' \
+'-t[sort by modification time]' \
+'-r[reverse primary sort order]' \
+'--reverse[reverse primary sort order]' \
+'-R[walk subdirectories]' \
+'--recursive[walk subdirectories]' \
+'--bytes[show raw byte sizes]' \
+'--icon[prefix names with icons]' \
+'--summary[append totals]' \
+'--sensitive[mark likely sensitive files]' \
+'--completions[generate completion files]' \
+'--help[print help]' \
+'*::paths:_files' \
+&& ret=0
+}
+
+(( $+functions[_lsef_commands] )) ||
+_lsef_commands() {
+    local commands; commands=()
+    _describe -t commands 'lsef commands' commands "$@"
+}
+
+if [ "$funcstack[1]" = "_lsef" ]; then
+    _lsef "$@"
+else
+    compdef _lsef lsef
+fi

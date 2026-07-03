@@ -1,0 +1,48 @@
+
+use builtin;
+use str;
+
+set edit:completion:arg-completer[lsef] = {|@words|
+    fn spaces {|n|
+        builtin:repeat $n ' ' | str:join ''
+    }
+    fn cand {|text desc|
+        edit:complex-candidate $text &display=$text' '(spaces (- 14 (wcswidth $text)))$desc
+    }
+    var command = 'lsef'
+    for word $words[1..-1] {
+        if (str:has-prefix $word '-') {
+            break
+        }
+        set command = $command';'$word
+    }
+    var completions = [
+        &'lsef'= {
+            cand --sort 'sort by name, size, time, or extension'
+            cand --max-depth 'limit recursive depth'
+            cand --time-format 'local or iso'
+            cand --type 'file, dir, directory, or link'
+            cand --output 'table, plain, csv, json, or yaml'
+            cand --format 'alias for --output'
+            cand -a 'include hidden files'
+            cand --all 'include hidden files'
+            cand -A 'include hidden and ignored files'
+            cand --whole-all 'include hidden and ignored files'
+            cand -l 'show extended table columns'
+            cand --long 'show extended table columns'
+            cand -S 'sort by size'
+            cand -t 'sort by modification time'
+            cand -r 'reverse primary sort order'
+            cand --reverse 'reverse primary sort order'
+            cand -R 'walk subdirectories'
+            cand --recursive 'walk subdirectories'
+            cand --bytes 'show raw byte sizes'
+            cand --icon 'prefix names with icons'
+            cand --summary 'append totals'
+            cand --sensitive 'mark likely sensitive files'
+            cand --completions 'generate completion files'
+            cand --help 'print help'
+        }
+    ]
+    $completions[$command]
+}
