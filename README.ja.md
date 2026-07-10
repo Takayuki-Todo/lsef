@@ -31,6 +31,8 @@ cargo build --release
 ./target/release/lsef --help
 ```
 
+Windows、Linux、macOS の Intel / ARM 向けに配布アーカイブも公開しています。各アーカイブには CLI バイナリ、シェル補完ファイル、リポジトリ内のドキュメントを含めています。
+
 ## 使い方
 
 ```sh
