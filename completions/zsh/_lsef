@@ -38,6 +38,7 @@ _lsef() {
 '--summary[append totals]' \
 '--sensitive[mark likely sensitive files]' \
 '--completions[generate completion files]' \
+'--version[print version]' \
 '--help[print help]' \
 '*::paths:_files' \
 && ret=0

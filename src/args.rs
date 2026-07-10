@@ -88,8 +88,8 @@ impl Default for Config {
 }
 
 impl CliError {
-    /// 引数解析中に発生した `--help` とエラーを CLI 向けの実行結果へ変換する。
-    /// ヘルプは正常終了として stdout に、入力エラーは終了コード 2 と stderr に
+    /// 引数解析中に発生した `--help` / `--version` とエラーを CLI 向けの実行結果へ変換する。
+    /// 即時表示系は正常終了として stdout に、入力エラーは終了コード 2 と stderr に
     /// 振り分け、呼び出し側の出力処理を単純にする。
     pub fn into_result(self) -> AppResult {
         match self {
@@ -167,6 +167,7 @@ fn consume_long(
     let (name, inline) = split_long(token);
     match name {
         "help" => Err(CliError::Help(help_text())),
+        "version" => Err(CliError::Help(version_text())),
         "all" => set_all(config, false),
         "whole-all" => set_all(config, true),
         "long" => set_flag(&mut config.long),
@@ -395,8 +396,15 @@ Options:
       --summary             append totals
       --sensitive           mark likely sensitive files
       --completions         generate completion files
+      --version             print version
 ";
     text.to_string()
+}
+
+/// `--version` で返すバージョン文字列を生成する。
+/// Cargo の package version を埋め込むことで、`Cargo.toml` の値と CLI 出力を同期させる。
+fn version_text() -> String {
+    format!("lsef {}\n", env!("CARGO_PKG_VERSION"))
 }
 
 /// `clap_complete` に渡すための CLI 定義を作る。
@@ -521,6 +529,12 @@ pub(crate) fn completion_command() -> Command {
             Arg::new("completions")
                 .long("completions")
                 .help("generate completion files")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("version")
+                .long("version")
+                .help("print version")
                 .action(ArgAction::SetTrue),
         )
         .arg(
@@ -745,6 +759,19 @@ mod tests {
         assert_eq!(error.into_result().code, 0);
     }
 
+    /// `--version` がバージョン文字列と終了コード 0 に変換されることを確認する。
+    #[test]
+    fn version_returns_success_result() {
+        let error = parse_args(["lsef", "--version"]).expect_err("version");
+        let result = error.into_result();
+        assert_eq!(
+            result.stdout,
+            format!("lsef {}\n", env!("CARGO_PKG_VERSION"))
+        );
+        assert_eq!(result.stderr, "");
+        assert_eq!(result.code, 0);
+    }
+
     /// 補完生成用の clap 定義が、公開している代表的なオプションとパスを受け付けることを確認する。
     #[test]
     fn completion_command_accepts_documented_options() {
@@ -763,6 +790,7 @@ mod tests {
             .expect("completion command matches documented options");
 
         assert!(matches.get_flag("all"));
+        assert!(!matches.get_flag("version"));
         assert_eq!(
             matches.get_one::<String>("sort").map(String::as_str),
             Some("extension")
@@ -783,5 +811,15 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["src"]
         );
+    }
+
+    /// 補完生成用の clap 定義が `--version` もフラグとして受け付けることを確認する。
+    #[test]
+    fn completion_command_accepts_version_flag() {
+        let matches = completion_command()
+            .try_get_matches_from(["lsef", "--version"])
+            .expect("completion command matches version");
+
+        assert!(matches.get_flag("version"));
     }
 }

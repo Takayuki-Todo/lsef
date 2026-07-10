@@ -44,6 +44,7 @@ Register-ArgumentCompleter -Native -CommandName 'lsef' -ScriptBlock {
             [CompletionResult]::new('--summary', '--summary', [CompletionResultType]::ParameterName, 'append totals')
             [CompletionResult]::new('--sensitive', '--sensitive', [CompletionResultType]::ParameterName, 'mark likely sensitive files')
             [CompletionResult]::new('--completions', '--completions', [CompletionResultType]::ParameterName, 'generate completion files')
+            [CompletionResult]::new('--version', '--version', [CompletionResultType]::ParameterName, 'print version')
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'print help')
             break
         }

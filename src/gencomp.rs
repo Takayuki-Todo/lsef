@@ -61,6 +61,10 @@ mod tests {
                 content.contains("completions"),
                 "{relative} missing completions option"
             );
+            assert!(
+                content.contains("version"),
+                "{relative} missing version option"
+            );
         }
     }
 

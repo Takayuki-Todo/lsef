@@ -41,6 +41,7 @@ set edit:completion:arg-completer[lsef] = {|@words|
             cand --summary 'append totals'
             cand --sensitive 'mark likely sensitive files'
             cand --completions 'generate completion files'
+            cand --version 'print version'
             cand --help 'print help'
         }
     ]

@@ -22,6 +22,18 @@ fn help_exits_successfully() {
     assert!(stderr(&output).is_empty());
 }
 
+/// バイナリの `--version` が成功終了し、現在の package version を stdout に出すことを確認する。
+#[test]
+fn version_exits_successfully() {
+    let output = run_lsef(&["--version"]);
+    assert!(output.status.success());
+    assert_eq!(
+        stdout(&output),
+        format!("lsef {}\n", env!("CARGO_PKG_VERSION"))
+    );
+    assert!(stderr(&output).is_empty());
+}
+
 /// plain 出力を実バイナリ経由で実行し、対象ディレクトリのファイル名が stdout に出ることを確認する。
 #[test]
 fn plain_output_lists_directory_entries() {

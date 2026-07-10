@@ -99,6 +99,7 @@ lsef -A --sensitive .
 | `--icon` | Prefix names with file-kind icons. |
 | `--summary` | Append totals. |
 | `--sensitive` | Mark likely sensitive files. |
+| `--version` | Print the version. |
 
 ## Output Formats
 

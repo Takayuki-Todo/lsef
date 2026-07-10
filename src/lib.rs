@@ -92,6 +92,18 @@ mod tests {
         assert!(result.stderr.is_empty());
     }
 
+    /// `--version` が一覧処理ではなく stdout と終了コード 0 として返ることを確認する。
+    #[test]
+    fn version_is_returned_as_stdout() {
+        let result = run_from_args(["lsef", "--version"]);
+        assert_eq!(result.code, 0);
+        assert_eq!(
+            result.stdout,
+            format!("lsef {}\n", env!("CARGO_PKG_VERSION"))
+        );
+        assert!(result.stderr.is_empty());
+    }
+
     /// CLI 引数の値エラーが stderr と終了コード 2 に変換されることを確認する。
     #[test]
     fn cli_argument_errors_use_code_two() {
