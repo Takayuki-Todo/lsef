@@ -6,6 +6,8 @@ on:
 jobs:
   update-version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Git Tag Name
         id: vars
@@ -17,6 +19,9 @@ jobs:
         with:
           ref: ${{ steps.vars.outputs.branch }}
           fetch-depth: 0
+      - uses: extractions/setup-just@v3
+        with:
+          just-version: "1.40.0"
       - name: Initialize
         run: |
           git config --global user.name "GitHub Actions"

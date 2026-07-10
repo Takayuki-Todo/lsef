@@ -8,6 +8,9 @@ container_image := "ghcr.io/takayuki-todo/lsef"
 test:
     cargo llvm-cov
 
+update_version version:
+    sh .github/scripts/update_version.sh {{version}}
+
 docs:
     cargo llvm-cov --html
     cd docs && {{container_runner}} run -it --rm hugomods/hugo:0.163.0
