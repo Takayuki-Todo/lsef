@@ -54,8 +54,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          sh .github/scripts/make_distribution_files
-          sh .github/scripts/upload_assets v${{ needs.setup.outputs.tag }}
+          sh .github/scripts/make_distribution_files.sh ${{ needs.setup.outputs.tag }}
+          sh .github/scripts/upload_assets.sh ${{ needs.setup.outputs.tag }}
   container_image:
     runs-on: ubuntu-latest
     permissions:
