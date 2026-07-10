@@ -585,6 +585,13 @@ mod tests {
         assert_eq!(config.paths, vec![PathBuf::from("-looks-like-option")]);
     }
 
+    /// 単独の `-` は短いオプションではなく、標準入力などを表すパスとして扱うことを確認する。
+    #[test]
+    fn treats_single_dash_as_path() {
+        let config = parse_args(["lsef", "-"]).expect("parse dash path");
+        assert_eq!(config.paths, vec![PathBuf::from("-")]);
+    }
+
     /// 長いフラグ形式のオプション群が、それぞれの設定値へ反映されることを確認する。
     #[test]
     fn parses_long_flags() {
@@ -641,9 +648,11 @@ mod tests {
     fn parses_type_filter_values() {
         let file = parse_args(["lsef", "--type", "file"]).expect("parse file type");
         let dir = parse_args(["lsef", "--type", "dir"]).expect("parse dir type");
+        let directory = parse_args(["lsef", "--type=directory"]).expect("parse directory type");
         let link = parse_args(["lsef", "--type", "link"]).expect("parse link type");
         assert_eq!(file.type_filter, Some(TypeFilter::File));
         assert_eq!(dir.type_filter, Some(TypeFilter::Directory));
+        assert_eq!(directory.type_filter, Some(TypeFilter::Directory));
         assert_eq!(link.type_filter, Some(TypeFilter::Link));
     }
 
@@ -682,6 +691,15 @@ mod tests {
     fn reports_unknown_short_option() {
         let error = parse_args(["lsef", "-z"]).expect_err("unknown short option");
         assert!(matches!(error, CliError::Message(message) if message == "unknown option: -z"));
+    }
+
+    /// `CliError::Message` が CLI 向けの stderr と終了コード 2 に変換されることを確認する。
+    #[test]
+    fn message_error_returns_stderr_result() {
+        let result = CliError::Message("bad option".to_string()).into_result();
+        assert_eq!(result.stdout, "");
+        assert_eq!(result.stderr, "bad option\n");
+        assert_eq!(result.code, 2);
     }
 
     /// 時刻フォーマットの不正値が、対象オプション名付きのエラーになることを確認する。
@@ -725,5 +743,45 @@ mod tests {
     fn help_returns_success_result() {
         let error = parse_args(["lsef", "--help"]).expect_err("help");
         assert_eq!(error.into_result().code, 0);
+    }
+
+    /// 補完生成用の clap 定義が、公開している代表的なオプションとパスを受け付けることを確認する。
+    #[test]
+    fn completion_command_accepts_documented_options() {
+        let matches = completion_command()
+            .try_get_matches_from([
+                "lsef",
+                "--all",
+                "--sort",
+                "extension",
+                "--format",
+                "csv",
+                "--type",
+                "directory",
+                "src",
+            ])
+            .expect("completion command matches documented options");
+
+        assert!(matches.get_flag("all"));
+        assert_eq!(
+            matches.get_one::<String>("sort").map(String::as_str),
+            Some("extension")
+        );
+        assert_eq!(
+            matches.get_one::<String>("format").map(String::as_str),
+            Some("csv")
+        );
+        assert_eq!(
+            matches.get_one::<String>("type").map(String::as_str),
+            Some("directory")
+        );
+        assert_eq!(
+            matches
+                .get_many::<String>("paths")
+                .expect("paths")
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            vec!["src"]
+        );
     }
 }
