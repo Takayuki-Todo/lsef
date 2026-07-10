@@ -24,6 +24,13 @@ cd lsef
 cargo install --path .
 ```
 
+Homebrew でインストールする場合は、`Formula/lsef.rb` を置いている別の tap リポジトリを追加します:
+
+```sh
+brew tap <tap-owner>/<tap-name>
+brew install lsef
+```
+
 リリース用バイナリをビルドする場合:
 
 ```sh

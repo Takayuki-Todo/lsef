@@ -26,6 +26,13 @@ cd lsef
 cargo install --path .
 ```
 
+Install with Homebrew from the separate tap repository that provides `Formula/lsef.rb`:
+
+```sh
+brew tap <tap-owner>/<tap-name>
+brew install lsef
+```
+
 Or build a release binary:
 
 ```sh
