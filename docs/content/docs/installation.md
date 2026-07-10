@@ -13,10 +13,10 @@ cd lsef
 cargo install --path .
 ```
 
-Homebrew で配布する場合は、このソースリポジトリではなく、別の tap リポジトリに置いた `Formula/lsef.rb` を使います。
+Homebrew で配布する場合は、このソースリポジトリではなく、別リポジトリ [Takayuki-Todo/homebrew-tap](https://github.com/Takayuki-Todo/homebrew-tap) に置いた `Formula/lsef.rb` を使います。
 
 ```sh
-brew tap <tap-owner>/<tap-name>
+brew tap Takayuki-Todo/tap
 brew install lsef
 ```
 
