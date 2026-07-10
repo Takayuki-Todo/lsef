@@ -40,7 +40,7 @@ cargo build --release
 ./target/release/lsef --help
 ```
 
-Prebuilt release archives are published for Windows, Linux, and macOS on both Intel and ARM platforms. Each archive includes the CLI binary, shell completions, and the documentation files from this repository.
+Prebuilt release archives are published for Linux and macOS on both Intel and ARM platforms, plus Windows x64. Each archive includes the CLI binary, shell completions, and the documentation files from this repository.
 
 ## Usage
 
