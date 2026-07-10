@@ -36,14 +36,19 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            homebrew: true
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
+            homebrew: true
           - os: macos-13
             target: x86_64-apple-darwin
+            homebrew: true
           - os: macos-14
             target: aarch64-apple-darwin
+            homebrew: true
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            homebrew: false
     runs-on: ${{ matrix.os }}
     needs: setup
     outputs:
@@ -66,11 +71,94 @@ jobs:
           git submodule sync --recursive
           git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
       - name: Create distribution files.
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           sh .github/scripts/make_distribution_files.sh "${{ needs.setup.outputs.tag }}" "${{ matrix.target }}"
           sh .github/scripts/upload_assets.sh "${{ needs.setup.outputs.tag }}"
+      - name: Write Homebrew checksum metadata
+        if: matrix.homebrew
+        shell: bash
+        run: |
+          mkdir -p homebrew-checksums
+          for asset in dist/*.tar.gz; do
+            if command -v sha256sum >/dev/null 2>&1; then
+              sha256=$(sha256sum "$asset" | awk '{ print $1 }')
+            else
+              sha256=$(shasum -a 256 "$asset" | awk '{ print $1 }')
+            fi
+            printf '%s  %s\n' "$sha256" "$(basename "$asset")" > "homebrew-checksums/${{ matrix.target }}.sha256"
+          done
+      - name: Upload Homebrew checksum metadata
+        if: matrix.homebrew
+        uses: actions/upload-artifact@v4
+        with:
+          name: homebrew-checksum-${{ matrix.target }}
+          path: homebrew-checksums/*.sha256
+          if-no-files-found: error
+  update_homebrew_tap:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    needs:
+      - setup
+      - publish
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Check Homebrew tap token
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN is required to update Takayuki-Todo/homebrew-tap" >&2
+            exit 1
+          fi
+      - name: Download Homebrew checksum metadata
+        uses: actions/download-artifact@v4
+        with:
+          pattern: homebrew-checksum-*
+          path: homebrew-checksums
+          merge-multiple: true
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: Takayuki-Todo/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+      - name: Update Homebrew formula
+        run: |
+          sh .github/scripts/update_homebrew_formula.sh "${{ needs.setup.outputs.tag }}" homebrew-checksums homebrew-tap/Formula/lsef.rb
+      - name: Open Homebrew tap pull request
+        working-directory: homebrew-tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_REPO: Takayuki-Todo/homebrew-tap
+          TAG: ${{ needs.setup.outputs.tag }}
+        run: |
+          branch="lsef-v$TAG"
+          git config user.name "GitHub Actions"
+          git config user.email "action@github.com"
+          git checkout -B "$branch"
+          git add Formula/lsef.rb
+
+          if git diff --cached --quiet; then
+            echo "Formula/lsef.rb is already up to date"
+            exit 0
+          fi
+
+          git commit -m "Update lsef to v$TAG"
+          git push --force-with-lease origin "$branch"
+
+          title="Update lsef to v$TAG"
+          body="Generated from the lsef v$TAG release archives and sha256 checksums."
+
+          if gh pr view "$branch" --json number >/dev/null 2>&1; then
+            gh pr edit "$branch" --title "$title" --body "$body"
+          else
+            gh pr create --base main --head "$branch" --title "$title" --body "$body"
+          fi
   container_image:
     runs-on: ubuntu-latest
     permissions:
