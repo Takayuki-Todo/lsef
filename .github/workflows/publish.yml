@@ -7,27 +7,29 @@ on:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     # runs only the branch name starts with 'release/v' and the pull request is merged.
     if: startsWith(github.head_ref, 'releases/v') && github.event.pull_request.merged == true
     outputs:
       tag: ${{ steps.vars.outputs.tag }}
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - name: Git Tag name
         id: vars
         run: |
           echo "tag=${GITHUB_HEAD_REF##*/v}" >> $GITHUB_OUTPUT
       - name: Create release
-        id: create_release
-        uses: actions/create-release@v1.0.0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.vars.outputs.tag }}
-          release_name: Release v${{ steps.vars.outputs.tag }}
-          draft: true
-          prerelease: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "v${{ steps.vars.outputs.tag }}" \
+            --title "Release v${{ steps.vars.outputs.tag }}" \
+            --draft \
+            --target main
   publish:
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +48,6 @@ jobs:
     needs: setup
     outputs:
       tag: ${{ needs.setup.outputs.tag }}
-      upload_url: ${{ needs.setup.outputs.upload_url }}
     steps:
       - uses: extractions/setup-just@v3
         with:
@@ -66,10 +67,10 @@ jobs:
           git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
       - name: Create distribution files.
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          sh .github/scripts/make_distribution_files.sh ${{ needs.setup.outputs.tag }} ${{ matrix.target }}
-          sh .github/scripts/upload_assets.sh ${{ needs.setup.outputs.tag }}
+          sh .github/scripts/make_distribution_files.sh "${{ needs.setup.outputs.tag }}" "${{ matrix.target }}"
+          sh .github/scripts/upload_assets.sh "${{ needs.setup.outputs.tag }}"
   container_image:
     runs-on: ubuntu-latest
     permissions:
