@@ -23,6 +23,7 @@ jobs:
       - name: build
         run: |
           cargo clippy -- -D warnings
+          cargo test --locked
           cargo build --release
 
       - name: Convert coverage format to lcov
