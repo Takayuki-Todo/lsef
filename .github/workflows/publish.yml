@@ -28,7 +28,21 @@ jobs:
           draft: true
           prerelease: false
   publish:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
     needs: setup
     outputs:
       tag: ${{ needs.setup.outputs.tag }}
@@ -54,7 +68,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          sh .github/scripts/make_distribution_files.sh ${{ needs.setup.outputs.tag }}
+          sh .github/scripts/make_distribution_files.sh ${{ needs.setup.outputs.tag }} ${{ matrix.target }}
           sh .github/scripts/upload_assets.sh ${{ needs.setup.outputs.tag }}
   container_image:
     runs-on: ubuntu-latest
