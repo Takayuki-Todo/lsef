@@ -12,8 +12,8 @@ jobs:
       - name: Git Tag Name
         id: vars
         run: |
-          echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
-          echo "tag=${GITHUB_REF##**/v}" >> $GITHUB_OUTPUT
+          echo "branch=${GITHUB_REF#refs/heads/}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF##**/v}" >> "$GITHUB_OUTPUT"
       - name: Checkout
         uses: actions/checkout@v4
         with:
