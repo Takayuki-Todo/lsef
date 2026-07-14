@@ -4,6 +4,20 @@ on:
     branches:
       - "**"
 jobs:
+  lint-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6
+
+      - name: actionlint
+        uses: raven-actions/actionlint@v2
+
+      - name: shellcheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: .github/scripts
+
   build:
     runs-on: ${{ matrix.os }}
     strategy:
