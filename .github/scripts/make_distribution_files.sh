@@ -15,7 +15,7 @@ case "$TARGET" in
 		;;
 esac
 
-cargo build --release --target "$TARGET"
+cargo build --release --locked --target "$TARGET"
 
 mkdir -p "dist/$RELEASE"
 cp LICENSE README.md README.ja.md "dist/$RELEASE"

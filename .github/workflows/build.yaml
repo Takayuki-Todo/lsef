@@ -22,9 +22,9 @@ jobs:
 
       - name: build
         run: |
-          cargo clippy -- -D warnings
+          cargo clippy --locked -- -D warnings
           cargo test --locked
-          cargo build --release
+          cargo build --release --locked
 
       - name: Convert coverage format to lcov
         if: matrix.os == 'ubuntu-latest'

@@ -4,7 +4,7 @@
 FROM rust:1.96.0 AS builder
 WORKDIR /app
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --locked
 # ------------------------------
 # Stage 2. Build for runtime
 # ------------------------------
