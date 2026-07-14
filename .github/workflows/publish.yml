@@ -13,20 +13,32 @@ jobs:
     if: startsWith(github.head_ref, 'releases/v') && github.event.pull_request.merged == true
     outputs:
       tag: ${{ steps.vars.outputs.tag }}
+      target_sha: ${{ steps.vars.outputs.target_sha }}
     steps:
       - name: Git Tag name
         id: vars
         run: |
           echo "tag=${GITHUB_HEAD_REF##*/v}" >> $GITHUB_OUTPUT
+          echo "target_sha=${{ github.event.pull_request.merge_commit_sha }}" >> $GITHUB_OUTPUT
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.vars.outputs.tag }}
+          TARGET_SHA: ${{ steps.vars.outputs.target_sha }}
         run: |
-          gh release create "v${{ steps.vars.outputs.tag }}" \
-            --title "Release v${{ steps.vars.outputs.tag }}" \
-            --draft \
-            --target main
+          release_tag="v$TAG"
+
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            gh release edit "$release_tag" \
+              --title "Release $release_tag" \
+              --target "$TARGET_SHA"
+          else
+            gh release create "$release_tag" \
+              --title "Release $release_tag" \
+              --draft \
+              --target "$TARGET_SHA"
+          fi
   publish:
     permissions:
       contents: write
@@ -60,7 +72,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ needs.setup.outputs.target_sha }}
           fetch-depth: 0 # Fetch all history for .GitInfo and .Lastmod
       - name: Initialize Git
         shell: bash
@@ -97,6 +109,50 @@ jobs:
           name: homebrew-checksum-${{ matrix.target }}
           path: homebrew-checksums/*.sha256
           if-no-files-found: error
+  container_image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    needs:
+      - setup
+      - publish
+    steps:
+      - name: Setup just
+        uses: extractions/setup-just@v4
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.setup.outputs.target_sha }}
+          fetch-depth: 0
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Container
+        run: just container
+  publish_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    needs:
+      - setup
+      - publish
+      - container_image
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release edit "v${{ needs.setup.outputs.tag }}" --draft=false --latest
   update_homebrew_tap:
     runs-on: ubuntu-latest
     permissions:
@@ -104,9 +160,12 @@ jobs:
     needs:
       - setup
       - publish
+      - publish_release
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.setup.outputs.target_sha }}
       - name: Check Homebrew tap token
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -159,30 +218,3 @@ jobs:
           else
             gh pr create --base main --head "$branch" --title "$title" --body "$body"
           fi
-  container_image:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-    needs: publish
-    steps:
-      - name: Setup just
-        uses: extractions/setup-just@v4
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          fetch-depth: 0
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Container
-        run: just container
