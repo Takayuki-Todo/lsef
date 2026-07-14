@@ -14,7 +14,7 @@ lsef (List Extended Features) is a Rust-based file listing tool inspired by ls.
 
 `lsef` provides a richer and more readable file listing experience than the standard `ls` command while staying lightweight and script-friendly.
 
-It can show file kind, size, modification time, recursive listings, structured output formats, icons, and summary totals.
+It can show file kind, size, modification time, recursive tree listings, structured output formats, icons, and summary totals.
 
 ## Installation
 
@@ -70,6 +70,12 @@ Show hidden files, recurse into subdirectories, and stop after two levels:
 lsef -aR --max-depth 2 .
 ```
 
+Show a directory hierarchy as a tree:
+
+```sh
+lsef --tree src
+```
+
 List only regular files and sort by size:
 
 ```sh
@@ -99,11 +105,12 @@ lsef -A --sensitive .
 | `-t`, `--sort time` | Sort by modification time. |
 | `-r`, `--reverse` | Reverse the primary sort order. |
 | `-R`, `--recursive` | Walk subdirectories. |
+| `--tree` | Show a recursive directory tree. |
 | `--max-depth <N>` | Limit recursive depth. |
 | `--time-format <MODE>` | Format timestamps as `local` or `iso`. |
 | `--bytes` | Show raw byte sizes instead of human-readable sizes. |
 | `--type <KIND>` | Filter by `file`, `dir`, or `link`. |
-| `--output <MODE>` | Select `table`, `plain`, `csv`, `json`, or `yaml`. |
+| `--output <MODE>` | Select `table`, `plain`, `tree`, `csv`, `json`, or `yaml`. |
 | `--format <MODE>` | Alias for `--output`. |
 | `--icon` | Prefix names with file-kind icons. |
 | `--summary` | Append totals. |
@@ -115,6 +122,7 @@ lsef -A --sensitive .
 `lsef` defaults to a readable table output. For scripts or downstream tools, use `--output`:
 
 - `plain`: one entry per line
+- `tree`: recursive directory tree
 - `csv`: comma-separated records
 - `json`: structured JSON
 - `yaml`: structured YAML

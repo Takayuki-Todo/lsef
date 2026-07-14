@@ -1,6 +1,8 @@
 use crate::args::{Config, OutputMode, TimeFormat};
 use crate::model::{Entry, FileKind, Listing, Section, Summary};
 use crate::time::format_system_time;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
 /// 収集済みの一覧を、設定された出力形式の文字列へ変換する。
 /// ここでは標準出力へ直接書かず、CLI でもテストでも同じ返り値として扱えるようにする。
@@ -8,6 +10,7 @@ pub fn format_listing(listing: &Listing, config: &Config) -> String {
     let mut text = match config.output {
         OutputMode::Table => format_table(listing, config),
         OutputMode::Plain => format_plain(listing, config),
+        OutputMode::Tree => format_tree(listing, config),
         OutputMode::Csv => format_csv(listing, config),
         OutputMode::Json => format_json(listing, config.summary, config.time_format),
         OutputMode::Yaml => format_yaml(listing, config.summary, config.time_format),
@@ -69,6 +72,193 @@ fn plain_rows(section: &Section, config: &Config) -> Vec<String> {
         .iter()
         .map(|entry| decorate_name(entry, config, true))
         .collect()
+}
+
+/// 再帰収集済みのセクション群を親子関係に戻し、ディレクトリツリーとして整形する。
+/// `--type file` のように親ディレクトリ行が表示フィルタで消えた場合も、
+/// 下位セクションへ到達するための枝は補って階層を保つ。
+fn format_tree(listing: &Listing, config: &Config) -> String {
+    let context = TreeContext::new(listing);
+    let mut rows = Vec::new();
+    for section in &context.roots {
+        rows.push(section.path.display().to_string());
+        push_tree_entries(&mut rows, section, &context, config, "");
+    }
+    finish_lines(rows)
+}
+
+/// ツリー整形に必要な section 検索用インデックスをまとめる。
+struct TreeContext<'a> {
+    sections: HashMap<PathBuf, &'a Section>,
+    children: HashMap<PathBuf, Vec<&'a Section>>,
+    roots: Vec<&'a Section>,
+}
+
+impl<'a> TreeContext<'a> {
+    /// セクションのパス集合から、親子検索とルート判定に使う補助構造を作る。
+    fn new(listing: &'a Listing) -> Self {
+        let paths = section_paths(listing);
+        Self {
+            sections: sections_by_path(listing),
+            children: children_by_parent(listing, &paths),
+            roots: root_sections(listing, &paths),
+        }
+    }
+}
+
+/// セクションパスの集合を作り、親セクションが存在するかを高速に判定できるようにする。
+fn section_paths(listing: &Listing) -> HashSet<PathBuf> {
+    listing
+        .sections
+        .iter()
+        .map(|section| section.path.clone())
+        .collect()
+}
+
+/// エントリのパスから下位セクションを見つけるためのインデックスを作る。
+fn sections_by_path(listing: &Listing) -> HashMap<PathBuf, &Section> {
+    listing
+        .sections
+        .iter()
+        .map(|section| (section.path.clone(), section))
+        .collect()
+}
+
+/// 各セクションを最も近い親セクションの配下に分類する。
+fn children_by_parent<'a>(
+    listing: &'a Listing,
+    paths: &HashSet<PathBuf>,
+) -> HashMap<PathBuf, Vec<&'a Section>> {
+    let mut children: HashMap<PathBuf, Vec<&Section>> = HashMap::new();
+    for section in &listing.sections {
+        if let Some(parent) = nearest_parent_section(&section.path, paths) {
+            children
+                .entry(parent.to_path_buf())
+                .or_default()
+                .push(section);
+        }
+    }
+    children
+}
+
+/// 他セクションの配下ではないセクションを、ツリーのルートとして選ぶ。
+fn root_sections<'a>(listing: &'a Listing, paths: &HashSet<PathBuf>) -> Vec<&'a Section> {
+    listing
+        .sections
+        .iter()
+        .filter(|section| nearest_parent_section(&section.path, paths).is_none())
+        .collect()
+}
+
+/// 指定パスから親方向へたどり、最初に見つかる既存セクションを返す。
+fn nearest_parent_section<'a>(path: &'a Path, paths: &HashSet<PathBuf>) -> Option<&'a Path> {
+    let mut current = path.parent();
+    while let Some(parent) = current {
+        if parent.as_os_str().is_empty() {
+            return None;
+        }
+        if paths.contains(parent) {
+            return Some(parent);
+        }
+        current = parent.parent();
+    }
+    None
+}
+
+/// 1 セクション配下の表示行を、ツリー接続線つきで追加する。
+fn push_tree_entries(
+    rows: &mut Vec<String>,
+    section: &Section,
+    context: &TreeContext<'_>,
+    config: &Config,
+    prefix: &str,
+) {
+    let implicit_children = implicit_child_sections(section, context);
+    let total = section.entries.len() + implicit_children.len();
+
+    for (index, entry) in section.entries.iter().enumerate() {
+        let is_last = index + 1 == total;
+        push_tree_line(rows, prefix, is_last, decorate_name(entry, config, true));
+        if let Some(child) = explicit_child_section(entry, context) {
+            let next_prefix = next_tree_prefix(prefix, is_last);
+            push_tree_entries(rows, child, context, config, &next_prefix);
+        }
+    }
+
+    for (offset, child) in implicit_children.iter().enumerate() {
+        let index = section.entries.len() + offset;
+        let is_last = index + 1 == total;
+        push_tree_line(rows, prefix, is_last, tree_section_name(child, config));
+        let next_prefix = next_tree_prefix(prefix, is_last);
+        push_tree_entries(rows, child, context, config, &next_prefix);
+    }
+}
+
+/// 表示済みのディレクトリエントリに紐づかない下位セクションを、補助的な枝として返す。
+fn implicit_child_sections<'a>(
+    section: &'a Section,
+    context: &'a TreeContext<'a>,
+) -> Vec<&'a Section> {
+    let explicit = section
+        .entries
+        .iter()
+        .filter_map(|entry| explicit_child_section(entry, context))
+        .map(|child| child.path.clone())
+        .collect::<HashSet<_>>();
+
+    context
+        .children
+        .get(&section.path)
+        .into_iter()
+        .flatten()
+        .copied()
+        .filter(|child| !explicit.contains(&child.path))
+        .collect()
+}
+
+/// 表示エントリがディレクトリで、そのパスに対応する下位セクションがあれば返す。
+fn explicit_child_section<'a>(entry: &Entry, context: &'a TreeContext<'a>) -> Option<&'a Section> {
+    (entry.kind == FileKind::Directory)
+        .then(|| context.sections.get(&entry.path).copied())
+        .flatten()
+}
+
+/// ツリーの 1 行を、現在の接頭辞と枝の形に合わせて追加する。
+fn push_tree_line(rows: &mut Vec<String>, prefix: &str, is_last: bool, name: String) {
+    let branch = if is_last { "└── " } else { "├── " };
+    rows.push(format!("{prefix}{branch}{name}"));
+}
+
+/// 子階層へ渡す接頭辞を、親が最後の枝かどうかに合わせて作る。
+fn next_tree_prefix(prefix: &str, is_last: bool) -> String {
+    let branch = if is_last { "    " } else { "│   " };
+    format!("{prefix}{branch}")
+}
+
+/// 表示フィルタで親ディレクトリエントリがない場合に、セクションパスから枝名を補う。
+fn tree_section_name(section: &Section, config: &Config) -> String {
+    let name = section
+        .path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| section.path.display().to_string());
+    let name = if config.icon {
+        format!("[D] {name}")
+    } else {
+        name
+    };
+    colorize_directory_name(name, config)
+}
+
+/// 補助的に表示するディレクトリ枝にも、可能な場合は `LS_COLORS` のディレクトリ色を適用する。
+fn colorize_directory_name(name: String, config: &Config) -> String {
+    let Some(spec) = config.color_spec.as_deref() else {
+        return name;
+    };
+    let Some(code) = color_value(spec, "di") else {
+        return name;
+    };
+    format!("\x1b[{code}m{name}\x1b[0m")
 }
 
 /// CSV 出力全体を生成し、先頭に固定ヘッダー行を付ける。
@@ -453,6 +643,32 @@ mod tests {
         assert_eq!(format_listing(&listing(), &config), "note.txt\n");
     }
 
+    /// 再帰収集された複数セクションを、親子関係のあるツリーとして表示することを確認する。
+    #[test]
+    fn formats_tree_listing() {
+        let config = Config {
+            output: OutputMode::Tree,
+            ..Config::default()
+        };
+        assert_eq!(
+            format_listing(&tree_listing(), &config),
+            "root\n├── README.md\n└── src\n    └── main.rs\n"
+        );
+    }
+
+    /// 種別フィルタで親ディレクトリ行がない場合も、下位セクションへの枝を補うことを確認する。
+    #[test]
+    fn formats_tree_listing_with_implicit_directory_branch() {
+        let config = Config {
+            output: OutputMode::Tree,
+            ..Config::default()
+        };
+        assert_eq!(
+            format_listing(&filtered_tree_listing(), &config),
+            "root\n├── README.md\n└── src\n    └── main.rs\n"
+        );
+    }
+
     /// CSV 出力がヘッダーと各エントリの構造化行を含むことを確認する。
     #[test]
     fn formats_csv_listing() {
@@ -668,6 +884,53 @@ mod tests {
         }
     }
 
+    /// ツリー表示を確認するため、親ディレクトリと子ディレクトリの 2 セクション一覧を作る。
+    fn tree_listing() -> Listing {
+        Listing {
+            sections: vec![
+                Section {
+                    path: PathBuf::from("root"),
+                    entries: vec![
+                        entry_at("root/README.md", "README.md", FileKind::File),
+                        entry_at("root/src", "src", FileKind::Directory),
+                    ],
+                },
+                Section {
+                    path: PathBuf::from("root/src"),
+                    entries: vec![entry_at("root/src/main.rs", "main.rs", FileKind::File)],
+                },
+            ],
+            summary: Summary {
+                files: 2,
+                directories: 1,
+                total_size: 21,
+            },
+            errors: Vec::new(),
+        }
+    }
+
+    /// 表示フィルタ後に親ディレクトリエントリだけが消えた形のツリー用一覧を作る。
+    fn filtered_tree_listing() -> Listing {
+        Listing {
+            sections: vec![
+                Section {
+                    path: PathBuf::from("root"),
+                    entries: vec![entry_at("root/README.md", "README.md", FileKind::File)],
+                },
+                Section {
+                    path: PathBuf::from("root/src"),
+                    entries: vec![entry_at("root/src/main.rs", "main.rs", FileKind::File)],
+                },
+            ],
+            summary: Summary {
+                files: 2,
+                directories: 0,
+                total_size: 14,
+            },
+            errors: Vec::new(),
+        }
+    }
+
     /// 種別ごとの表示分岐を確認するため、主要な種別を含む一覧を作る。
     /// アイコンと色のテストで同じデータを使い、表示機能ごとの差だけを見る。
     fn kind_listing() -> Listing {
@@ -709,8 +972,13 @@ mod tests {
     /// 名前と種別だけを差し替えた整形テスト用エントリを作る。
     /// サイズや時刻は固定し、表示分岐以外の要素で出力が揺れないようにする。
     fn entry_with(name: &str, kind: FileKind) -> Entry {
+        entry_at(name, name, kind)
+    }
+
+    /// 表示名と実パスを別々に持つ整形テスト用エントリを作る。
+    fn entry_at(path: &str, name: &str, kind: FileKind) -> Entry {
         Entry {
-            path: PathBuf::from(name),
+            path: PathBuf::from(path),
             name: name.to_string(),
             kind,
             size: 7,

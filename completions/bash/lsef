@@ -23,7 +23,7 @@ _lsef() {
 
     case "${cmd}" in
         lsef)
-            opts="-a -A -l -S -t -r -R --all --whole-all --long --sort --reverse --recursive --max-depth --time-format --bytes --type --output --format --icon --summary --sensitive --completions --version --help"
+            opts="-a -A -l -S -t -r -R --all --whole-all --long --sort --reverse --recursive --tree --max-depth --time-format --bytes --type --output --format --icon --summary --sensitive --completions --version --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -46,11 +46,11 @@ _lsef() {
                     return 0
                     ;;
                 --output)
-                    COMPREPLY=($(compgen -W "table plain csv json yaml" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "table plain tree csv json yaml" -- "${cur}"))
                     return 0
                     ;;
                 --format)
-                    COMPREPLY=($(compgen -W "table plain csv json yaml" -- "${cur}"))
+                    COMPREPLY=($(compgen -W "table plain tree csv json yaml" -- "${cur}"))
                     return 0
                     ;;
                 *)

@@ -17,6 +17,7 @@ lsef --output json .
 
 - `table`: 人間が読みやすい表形式
 - `plain`: 1 行に 1 件ずつ表示
+- `tree`: ディレクトリ階層をツリー表示
 - `csv`: CSV レコード
 - `json`: 構造化 JSON
 - `yaml`: 構造化 YAML

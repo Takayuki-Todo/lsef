@@ -16,11 +16,12 @@ weight: 30
 | `-t`, `--sort time` | 更新日時で並べ替えます。 |
 | `-r`, `--reverse` | 主な並び順を逆順にします。 |
 | `-R`, `--recursive` | サブディレクトリを再帰的にたどります。 |
+| `--tree` | ディレクトリ階層を再帰的なツリーとして表示します。 |
 | `--max-depth <N>` | 再帰的にたどる深さを制限します。 |
 | `--time-format <MODE>` | `local` または `iso` で時刻を表示します。 |
 | `--bytes` | ファイルサイズをバイト数で表示します。 |
 | `--type <KIND>` | `file`、`dir`、`link` のいずれかで絞り込みます。 |
-| `--output <MODE>` | `table`、`plain`、`csv`、`json`、`yaml` のいずれかで出力します。 |
+| `--output <MODE>` | `table`、`plain`、`tree`、`csv`、`json`、`yaml` のいずれかで出力します。 |
 | `--format <MODE>` | `--output` の別名です。 |
 | `--icon` | ファイル種別に応じたアイコンを名前の前に付けます。 |
 | `--summary` | 集計情報を追加します。 |

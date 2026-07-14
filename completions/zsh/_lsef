@@ -19,8 +19,8 @@ _lsef() {
 '--max-depth=[limit recursive depth]:N:_default' \
 '--time-format=[local or iso]:MODE:(local iso)' \
 '--type=[file, dir, directory, or link]:KIND:(file dir directory link)' \
-'--output=[table, plain, csv, json, or yaml]:MODE:(table plain csv json yaml)' \
-'--format=[alias for --output]:MODE:(table plain csv json yaml)' \
+'--output=[table, plain, tree, csv, json, or yaml]:MODE:(table plain tree csv json yaml)' \
+'--format=[alias for --output]:MODE:(table plain tree csv json yaml)' \
 '-a[include hidden files]' \
 '--all[include hidden files]' \
 '-A[include hidden and ignored files]' \
@@ -33,6 +33,7 @@ _lsef() {
 '--reverse[reverse primary sort order]' \
 '-R[walk subdirectories]' \
 '--recursive[walk subdirectories]' \
+'--tree[show a recursive tree]' \
 '--bytes[show raw byte sizes]' \
 '--icon[prefix names with icons]' \
 '--summary[append totals]' \

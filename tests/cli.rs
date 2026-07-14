@@ -45,6 +45,21 @@ fn plain_output_lists_directory_entries() {
     assert!(stderr(&output).is_empty());
 }
 
+/// `--tree` を実バイナリ経由で実行し、階層が枝つきで stdout に出ることを確認する。
+#[test]
+fn tree_output_lists_nested_entries() {
+    let dir = TempDir::new("tree-cli");
+    dir.dir("sub");
+    dir.file("sub/nested.txt", "nested");
+    let output = run_lsef(&["--tree", dir.path_str()]);
+    assert!(output.status.success());
+    assert_eq!(
+        stdout(&output),
+        format!("{}\n└── sub\n    └── nested.txt\n", dir.path_str())
+    );
+    assert!(stderr(&output).is_empty());
+}
+
 /// 存在しないパスを実バイナリに渡したとき、非 0 終了と stderr で失敗を返すことを確認する。
 #[test]
 fn missing_path_exits_with_error() {
@@ -91,6 +106,11 @@ impl TempDir {
     /// CLI の一覧対象を最小限にし、出力の期待値を決定的にするために使う。
     fn file(&self, name: &str, text: &str) {
         fs::write(self.path.join(name), text).expect("write temp file");
+    }
+
+    /// 一時ディレクトリ配下にサブディレクトリを作成する。
+    fn dir(&self, name: &str) {
+        fs::create_dir_all(self.path.join(name)).expect("create temp subdirectory");
     }
 }
 

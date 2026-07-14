@@ -37,6 +37,12 @@ lsef --type file --sort size .
 lsef -R --max-depth 2 .
 ```
 
+ディレクトリ階層をツリー表示します。
+
+```sh
+lsef --tree src
+```
+
 JSON と summary を組み合わせます。
 
 ```sh

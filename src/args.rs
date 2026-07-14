@@ -49,6 +49,7 @@ pub enum TypeFilter {
 pub enum OutputMode {
     Table,
     Plain,
+    Tree,
     Csv,
     Json,
     Yaml,
@@ -173,6 +174,7 @@ fn consume_long(
         "long" => set_flag(&mut config.long),
         "reverse" => set_flag(&mut config.reverse),
         "recursive" => set_flag(&mut config.recursive),
+        "tree" => set_tree_output(config),
         "bytes" => set_flag(&mut config.bytes),
         "icon" => set_flag(&mut config.icon),
         "summary" => set_flag(&mut config.summary),
@@ -310,6 +312,10 @@ fn parse_output(value: &str, config: &mut Config) -> Result<(), CliError> {
     config.output = match value {
         "table" => OutputMode::Table,
         "plain" => OutputMode::Plain,
+        "tree" => {
+            config.recursive = true;
+            OutputMode::Tree
+        }
         "csv" => OutputMode::Csv,
         "json" => OutputMode::Json,
         "yaml" => OutputMode::Yaml,
@@ -337,6 +343,13 @@ fn set_all(config: &mut Config, include_ignored: bool) -> Result<usize, CliError
 /// `consume_long` の match アームを短く保つための小さな共通ヘルパーである。
 fn set_flag(flag: &mut bool) -> Result<usize, CliError> {
     *flag = true;
+    Ok(1)
+}
+
+/// `--tree` は階層表示そのものを選び、下位ディレクトリも辿るよう再帰を同時に有効化する。
+fn set_tree_output(config: &mut Config) -> Result<usize, CliError> {
+    config.output = OutputMode::Tree;
+    config.recursive = true;
     Ok(1)
 }
 
@@ -386,11 +399,12 @@ Options:
   -t, --sort time           sort by modification time
   -r, --reverse             reverse primary sort order
   -R, --recursive           walk subdirectories
+      --tree                show a recursive tree
       --max-depth <N>       limit recursive depth
       --time-format <MODE>  local or iso
       --bytes               show raw byte sizes
       --type <KIND>         file, dir, or link
-      --output <MODE>       table, plain, csv, json, or yaml
+      --output <MODE>       table, plain, tree, csv, json, or yaml
       --format <MODE>       alias for --output
       --icon                prefix names with icons
       --summary             append totals
@@ -468,6 +482,12 @@ pub(crate) fn completion_command() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg(
+            Arg::new("tree")
+                .long("tree")
+                .help("show a recursive tree")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
             Arg::new("max-depth")
                 .long("max-depth")
                 .value_name("N")
@@ -497,15 +517,15 @@ pub(crate) fn completion_command() -> Command {
             Arg::new("output")
                 .long("output")
                 .value_name("MODE")
-                .help("table, plain, csv, json, or yaml")
-                .value_parser(["table", "plain", "csv", "json", "yaml"]),
+                .help("table, plain, tree, csv, json, or yaml")
+                .value_parser(["table", "plain", "tree", "csv", "json", "yaml"]),
         )
         .arg(
             Arg::new("format")
                 .long("format")
                 .value_name("MODE")
                 .help("alias for --output")
-                .value_parser(["table", "plain", "csv", "json", "yaml"]),
+                .value_parser(["table", "plain", "tree", "csv", "json", "yaml"]),
         )
         .arg(
             Arg::new("icon")
@@ -677,6 +697,25 @@ mod tests {
         assert_eq!(config.output, OutputMode::Yaml);
     }
 
+    /// `--tree` がツリー出力を選び、再帰走査も同時に有効にすることを確認する。
+    #[test]
+    fn parses_tree_flag_as_recursive_tree_output() {
+        let config = parse_args(["lsef", "--tree"]).expect("parse tree flag");
+        assert_eq!(config.output, OutputMode::Tree);
+        assert!(config.recursive);
+    }
+
+    /// `tree` は `--output` / `--format` の値としても受け付け、再帰走査を有効にする。
+    #[test]
+    fn parses_tree_output_mode() {
+        let output = parse_args(["lsef", "--output", "tree"]).expect("parse output tree");
+        let format = parse_args(["lsef", "--format=tree"]).expect("parse format tree");
+        assert_eq!(output.output, OutputMode::Tree);
+        assert!(output.recursive);
+        assert_eq!(format.output, OutputMode::Tree);
+        assert!(format.recursive);
+    }
+
     /// 未知のソートキーを指定したとき、引数エラーとして扱われることを確認する。
     #[test]
     fn reports_invalid_sort_value() {
@@ -779,10 +818,11 @@ mod tests {
             .try_get_matches_from([
                 "lsef",
                 "--all",
+                "--tree",
                 "--sort",
                 "extension",
                 "--format",
-                "csv",
+                "tree",
                 "--type",
                 "directory",
                 "src",
@@ -790,6 +830,7 @@ mod tests {
             .expect("completion command matches documented options");
 
         assert!(matches.get_flag("all"));
+        assert!(matches.get_flag("tree"));
         assert!(!matches.get_flag("version"));
         assert_eq!(
             matches.get_one::<String>("sort").map(String::as_str),
@@ -797,7 +838,7 @@ mod tests {
         );
         assert_eq!(
             matches.get_one::<String>("format").map(String::as_str),
-            Some("csv")
+            Some("tree")
         );
         assert_eq!(
             matches.get_one::<String>("type").map(String::as_str),
