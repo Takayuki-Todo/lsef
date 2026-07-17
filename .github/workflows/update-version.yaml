@@ -2,18 +2,19 @@ name: update version
 on:
   push:
     branches:
-    - releases/v*
+      - releases/v*
 jobs:
   update-version:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
-      - name: Git Tag Name
+      - name: Release branch metadata
         id: vars
         run: |
-          echo "branch=${GITHUB_REF#refs/heads/}" >> "$GITHUB_OUTPUT"
-          echo "tag=${GITHUB_REF##**/v}" >> "$GITHUB_OUTPUT"
+          echo "branch=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF_NAME#releases/v}" >> "$GITHUB_OUTPUT"
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -32,10 +33,28 @@ jobs:
       - name: update version
         id: update_version
         run: |
-          just update_version ${{ steps.vars.outputs.tag }}
-          git commit -a -m "update version to ${{ steps.vars.outputs.tag }}" || true
+          just update_version "${{ steps.vars.outputs.tag }}"
+          if git diff --quiet -- Cargo.toml Cargo.lock; then
+            echo "Version files already match ${{ steps.vars.outputs.tag }}"
+          else
+            git add Cargo.toml Cargo.lock
+            git commit -m "update version to ${{ steps.vars.outputs.tag }}"
+          fi
       - name: Push branch
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ steps.vars.outputs.branch }}
+        run: |
+          git push origin "HEAD:${{ steps.vars.outputs.branch }}"
+      - name: Open release pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ steps.vars.outputs.branch }}
+          TAG: ${{ steps.vars.outputs.tag }}
+        run: |
+          title="Release v$TAG"
+          body="Updates Cargo.toml and Cargo.lock to v$TAG. Merging this PR publishes GitHub Release v$TAG, uploads distribution archives, collects sha256 checksums, and opens a Homebrew tap Formula update PR."
+
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --title "$title" --body "$body"
+          else
+            gh pr create --base main --head "$BRANCH" --title "$title" --body "$body"
+          fi
