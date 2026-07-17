@@ -10,15 +10,51 @@
 &lt;li&gt;&lt;a href="../usage/"&gt;Usage&lt;/a&gt;&lt;/li&gt;
 &lt;li&gt;&lt;a href="../options/"&gt;Options&lt;/a&gt;&lt;/li&gt;
 &lt;/ul&gt;</description></item><item><title>Installation</title><link>https://Takayuki-Todo.github.io/lsef/docs/installation/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://Takayuki-Todo.github.io/lsef/docs/installation/</guid><description>&lt;h1 id="installation"&gt;Installation&lt;a class="anchor" href="#installation"&gt;#&lt;/a&gt;&lt;/h1&gt;
-&lt;p&gt;LSEF は Rust 製の CLI ツールです。ローカル checkout からインストールできます。&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;git clone https://github.com/Takayuki-Todo/lsef.git
-&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cd lsef
-&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo install --path .&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;インストール後、次のコマンドで動作を確認します。&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef --help&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;リリース用バイナリとしてビルドする場合は、次のコマンドを使います。&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo build --release
-&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;./target/release/lsef --help&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;開発中にその場で実行する場合は &lt;code&gt;cargo run&lt;/code&gt; も使えます。&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo run -- --help
-&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo run -- src&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description></item><item><title>Usage</title><link>https://Takayuki-Todo.github.io/lsef/docs/usage/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://Takayuki-Todo.github.io/lsef/docs/usage/</guid><description>&lt;h1 id="usage"&gt;Usage&lt;a class="anchor" href="#usage"&gt;#&lt;/a&gt;&lt;/h1&gt;
+&lt;p&gt;LSEF は Rust 製の CLI ツールです。Homebrew、GitHub Release の配布アーカイブ、ソースからのビルドで利用できます。&lt;/p&gt;
+&lt;h2 id="homebrew"&gt;Homebrew&lt;a class="anchor" href="#homebrew"&gt;#&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;Homebrew で配布する場合は、このソースリポジトリではなく、別リポジトリ &lt;a href="https://github.com/Takayuki-Todo/homebrew-tap"&gt;Takayuki-Todo/homebrew-tap&lt;/a&gt; に置いた &lt;code&gt;Formula/lsef.rb&lt;/code&gt; を使います。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;brew tap Takayuki-Todo/tap
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;brew install lsef&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;tap を追加せずに formula 名を明示してインストールすることもできます。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;brew install Takayuki-Todo/tap/lsef&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;インストール後、次のコマンドで動作を確認します。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;which lsef
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef --version&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;既存のインストールを更新する場合は、tap を更新してから upgrade します。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;brew update
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;brew upgrade lsef&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;formula の情報を確認する場合は &lt;code&gt;brew info&lt;/code&gt; を使います。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;brew info Takayuki-Todo/tap/lsef&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;削除する場合は &lt;code&gt;brew uninstall&lt;/code&gt; を使います。tap 自体が不要になった場合は &lt;code&gt;brew untap&lt;/code&gt; で外せます。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;brew uninstall lsef
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;brew untap Takayuki-Todo/tap&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id="github-releases"&gt;GitHub Releases&lt;a class="anchor" href="#github-releases"&gt;#&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;&lt;a href="https://github.com/Takayuki-Todo/lsef/releases"&gt;GitHub Releases&lt;/a&gt; には、次の環境向けの配布アーカイブを公開します。&lt;/p&gt;
+&lt;table&gt;
+	&lt;thead&gt;
+			&lt;tr&gt;
+					&lt;th&gt;Platform&lt;/th&gt;
+					&lt;th&gt;Target&lt;/th&gt;
+			&lt;/tr&gt;
+	&lt;/thead&gt;
+	&lt;tbody&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Linux x86_64&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;x86_64-unknown-linux-gnu&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Linux ARM64&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;aarch64-unknown-linux-gnu&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;macOS Intel&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;x86_64-apple-darwin&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;macOS Apple Silicon&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;aarch64-apple-darwin&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;Windows x64&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;x86_64-pc-windows-msvc&lt;/code&gt;&lt;/td&gt;
+			&lt;/tr&gt;
+	&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;各アーカイブには、CLI バイナリ、シェル補完ファイル、README などのドキュメントを含めます。&lt;/p&gt;</description></item><item><title>Usage</title><link>https://Takayuki-Todo.github.io/lsef/docs/usage/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://Takayuki-Todo.github.io/lsef/docs/usage/</guid><description>&lt;h1 id="usage"&gt;Usage&lt;a class="anchor" href="#usage"&gt;#&lt;/a&gt;&lt;/h1&gt;
 &lt;p&gt;基本形は次の通りです。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef &lt;span style="color:#f92672"&gt;[&lt;/span&gt;OPTIONS&lt;span style="color:#f92672"&gt;]&lt;/span&gt; &lt;span style="color:#f92672"&gt;[&lt;/span&gt;PATH ...&lt;span style="color:#f92672"&gt;]&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;パスを指定しない場合、カレントディレクトリを一覧表示します。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;複数のパスを指定することもできます。&lt;/p&gt;
@@ -64,6 +100,10 @@
 					&lt;td&gt;サブディレクトリを再帰的にたどります。&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;--tree&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;ディレクトリ階層を再帰的なツリーとして表示します。&lt;/td&gt;
+			&lt;/tr&gt;
+			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;--max-depth &amp;lt;N&amp;gt;&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;再帰的にたどる深さを制限します。&lt;/td&gt;
 			&lt;/tr&gt;
@@ -81,7 +121,7 @@
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;--output &amp;lt;MODE&amp;gt;&lt;/code&gt;&lt;/td&gt;
-					&lt;td&gt;&lt;code&gt;table&lt;/code&gt;、&lt;code&gt;plain&lt;/code&gt;、&lt;code&gt;csv&lt;/code&gt;、&lt;code&gt;json&lt;/code&gt;、&lt;code&gt;yaml&lt;/code&gt; のいずれかで出力します。&lt;/td&gt;
+					&lt;td&gt;&lt;code&gt;table&lt;/code&gt;、&lt;code&gt;plain&lt;/code&gt;、&lt;code&gt;tree&lt;/code&gt;、&lt;code&gt;csv&lt;/code&gt;、&lt;code&gt;json&lt;/code&gt;、&lt;code&gt;yaml&lt;/code&gt; のいずれかで出力します。&lt;/td&gt;
 			&lt;/tr&gt;
 			&lt;tr&gt;
 					&lt;td&gt;&lt;code&gt;--format &amp;lt;MODE&amp;gt;&lt;/code&gt;&lt;/td&gt;
@@ -99,6 +139,10 @@
 					&lt;td&gt;&lt;code&gt;--sensitive&lt;/code&gt;&lt;/td&gt;
 					&lt;td&gt;機密情報らしいファイルをマークします。&lt;/td&gt;
 			&lt;/tr&gt;
+			&lt;tr&gt;
+					&lt;td&gt;&lt;code&gt;--version&lt;/code&gt;&lt;/td&gt;
+					&lt;td&gt;バージョンを表示します。&lt;/td&gt;
+			&lt;/tr&gt;
 	&lt;/tbody&gt;
 &lt;/table&gt;
 &lt;p&gt;ヘルプでも同じ情報を確認できます。&lt;/p&gt;
@@ -109,6 +153,7 @@
 &lt;ul&gt;
 &lt;li&gt;&lt;code&gt;table&lt;/code&gt;: 人間が読みやすい表形式&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;plain&lt;/code&gt;: 1 行に 1 件ずつ表示&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;tree&lt;/code&gt;: ディレクトリ階層をツリー表示&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;csv&lt;/code&gt;: CSV レコード&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;json&lt;/code&gt;: 構造化 JSON&lt;/li&gt;
 &lt;li&gt;&lt;code&gt;yaml&lt;/code&gt;: 構造化 YAML&lt;/li&gt;
@@ -121,16 +166,21 @@
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef -l src&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;隠しファイルを含めます。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef -a .&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;通常ファイルだけをサイズ順に表示します。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef --type file --sort size .&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;再帰的にたどり、深さを 2 に制限します。&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef -R --max-depth &lt;span style="color:#ae81ff"&gt;2&lt;/span&gt; .&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;JSON と summary を組み合わせます。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef -R --max-depth &lt;span style="color:#ae81ff"&gt;2&lt;/span&gt; .&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;ディレクトリ階層をツリー表示します。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef --tree src&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;JSON と summary を組み合わせます。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef --output json --summary .&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;機密情報らしいファイル名をマークします。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;lsef --sensitive .&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description></item><item><title>Development</title><link>https://Takayuki-Todo.github.io/lsef/docs/development/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://Takayuki-Todo.github.io/lsef/docs/development/</guid><description>&lt;h1 id="development"&gt;Development&lt;a class="anchor" href="#development"&gt;#&lt;/a&gt;&lt;/h1&gt;
 &lt;p&gt;開発時は、まずテストを実行します。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo test --locked&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;format を確認します。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo fmt --check&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;lint を確認します。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo clippy -- -D warnings&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;release build を確認します。&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo build --release --locked&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;ドキュメントサイトをローカルで確認する場合は、&lt;code&gt;docs&lt;/code&gt; ディレクトリで Hugo server を起動します。&lt;/p&gt;
-&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cd docs
-&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;hugo server --minify&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description></item><item><title>Troubleshooting</title><link>https://Takayuki-Todo.github.io/lsef/docs/troubleshooting/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://Takayuki-Todo.github.io/lsef/docs/troubleshooting/</guid><description>&lt;h1 id="troubleshooting"&gt;Troubleshooting&lt;a class="anchor" href="#troubleshooting"&gt;#&lt;/a&gt;&lt;/h1&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;cargo build --release --locked&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;h2 id="release-automation"&gt;Release Automation&lt;a class="anchor" href="#release-automation"&gt;#&lt;/a&gt;&lt;/h2&gt;
+&lt;p&gt;新しいバージョンを配布する場合は、&lt;code&gt;releases/vX.Y.Z&lt;/code&gt; ブランチを push します。例として &lt;code&gt;0.4.0&lt;/code&gt; を配布する場合は次のようにします。&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;git switch main
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;git pull
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;git switch -c releases/v0.4.0
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;git push -u origin releases/v0.4.0&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;&lt;code&gt;update version&lt;/code&gt; workflow が &lt;code&gt;Cargo.toml&lt;/code&gt; と &lt;code&gt;Cargo.lock&lt;/code&gt; をそのバージョンに更新し、&lt;code&gt;main&lt;/code&gt; 向けの release PR を作成します。version files がすでに一致している場合でも、同じ release PR が作成または更新されます。&lt;/p&gt;
+&lt;p&gt;すでに &lt;code&gt;main&lt;/code&gt; 側で version files を更新済みの場合は、release branch に差分がないため PR を merge できません。その場合は release branch 上で空 commit を作成してから push します。&lt;/p&gt;</description></item><item><title>Troubleshooting</title><link>https://Takayuki-Todo.github.io/lsef/docs/troubleshooting/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://Takayuki-Todo.github.io/lsef/docs/troubleshooting/</guid><description>&lt;h1 id="troubleshooting"&gt;Troubleshooting&lt;a class="anchor" href="#troubleshooting"&gt;#&lt;/a&gt;&lt;/h1&gt;
 &lt;h2 id="command-not-found"&gt;Command Not Found&lt;a class="anchor" href="#command-not-found"&gt;#&lt;/a&gt;&lt;/h2&gt;
 &lt;p&gt;&lt;code&gt;lsef&lt;/code&gt; が見つからない場合は、インストール先が &lt;code&gt;PATH&lt;/code&gt; に含まれているか確認します。&lt;/p&gt;
 &lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-sh" data-lang="sh"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;which lsef&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;p&gt;ローカル checkout から実行するだけなら、&lt;code&gt;cargo run&lt;/code&gt; を使えます。&lt;/p&gt;
