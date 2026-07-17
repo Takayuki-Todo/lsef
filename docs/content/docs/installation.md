@@ -16,9 +16,16 @@ brew tap Takayuki-Todo/tap
 brew install lsef
 ```
 
+tap を追加せずに formula 名を明示してインストールすることもできます。
+
+```sh
+brew install Takayuki-Todo/tap/lsef
+```
+
 インストール後、次のコマンドで動作を確認します。
 
 ```sh
+which lsef
 lsef --version
 ```
 
@@ -27,6 +34,19 @@ lsef --version
 ```sh
 brew update
 brew upgrade lsef
+```
+
+formula の情報を確認する場合は `brew info` を使います。
+
+```sh
+brew info Takayuki-Todo/tap/lsef
+```
+
+削除する場合は `brew uninstall` を使います。tap 自体が不要になった場合は `brew untap` で外せます。
+
+```sh
+brew uninstall lsef
+brew untap Takayuki-Todo/tap
 ```
 
 ## GitHub Releases
@@ -42,6 +62,18 @@ brew upgrade lsef
 | Windows x64 | `x86_64-pc-windows-msvc` |
 
 各アーカイブには、CLI バイナリ、シェル補完ファイル、README などのドキュメントを含めます。
+
+Apple Silicon macOS で直接ダウンロードして実行する例です。ほかの環境では `target` を上の表の値に置き換えます。
+
+```sh
+version=0.3.0
+target=aarch64-apple-darwin
+curl -LO "https://github.com/Takayuki-Todo/lsef/releases/download/v${version}/lsef-${version}-${target}.tar.gz"
+tar -xzf "lsef-${version}-${target}.tar.gz"
+./"lsef-${version}-${target}"/lsef --version
+```
+
+必要に応じて、展開した `lsef` バイナリを `PATH` に含まれるディレクトリへ配置します。
 
 ## Container Image
 

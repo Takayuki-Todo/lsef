@@ -34,6 +34,12 @@ brew install lsef
 lsef --version
 ```
 
+You can also install the formula by its fully qualified name:
+
+```sh
+brew install Takayuki-Todo/tap/lsef
+```
+
 Update an existing Homebrew install:
 
 ```sh
@@ -41,7 +47,24 @@ brew update
 brew upgrade lsef
 ```
 
+Inspect or remove the Homebrew formula:
+
+```sh
+brew info Takayuki-Todo/tap/lsef
+brew uninstall lsef
+```
+
 Download a prebuilt archive from [GitHub Releases](https://github.com/Takayuki-Todo/lsef/releases) when you want a standalone binary. Release archives are published for Linux and macOS on both Intel and ARM platforms, plus Windows x64. Each archive includes the CLI binary, shell completions, and the documentation files from this repository.
+
+For example, on Apple Silicon macOS:
+
+```sh
+version=0.3.0
+target=aarch64-apple-darwin
+curl -LO "https://github.com/Takayuki-Todo/lsef/releases/download/v${version}/lsef-${version}-${target}.tar.gz"
+tar -xzf "lsef-${version}-${target}.tar.gz"
+./"lsef-${version}-${target}"/lsef --version
+```
 
 Run with the published container image:
 
@@ -160,6 +183,8 @@ cargo clippy -- -D warnings
 ### Release Automation
 
 Release branches use the `releases/vX.Y.Z` naming pattern. Pushing one opens a release pull request that updates `Cargo.toml` and `Cargo.lock`. Merging that pull request publishes the GitHub Release, uploads the platform archives, pushes the container image, and opens a Homebrew tap pull request.
+
+If the version files are already updated on `main`, create an empty release commit on the release branch so the release pull request can still be merged.
 
 The Homebrew tap pull request is intentionally left for human review. After it is merged, `brew update && brew upgrade lsef` installs the latest release from the tap.
 

@@ -42,6 +42,14 @@ git push -u origin releases/v0.4.0
 
 `update version` workflow が `Cargo.toml` と `Cargo.lock` をそのバージョンに更新し、`main` 向けの release PR を作成します。version files がすでに一致している場合でも、同じ release PR が作成または更新されます。
 
+すでに `main` 側で version files を更新済みの場合は、release branch に差分がないため PR を merge できません。その場合は release branch 上で空 commit を作成してから push します。
+
+```sh
+git switch -c releases/v0.4.0
+git commit --allow-empty -m "Release v0.4.0"
+git push -u origin releases/v0.4.0
+```
+
 release PR を merge すると、`publish` workflow が次の処理を実行します。
 
 - GitHub Release `vX.Y.Z` を draft として作成します。
@@ -60,6 +68,14 @@ Homebrew tap 側の PR は人間が内容を確認して merge します。merge
 ```sh
 gh release view v0.4.0 --repo Takayuki-Todo/lsef
 gh pr list --repo Takayuki-Todo/homebrew-tap --head lsef-v0.4.0
+```
+
+Homebrew tap PR を merge した後、利用者は次のコマンドで新しいバージョンを取得できます。
+
+```sh
+brew update
+brew upgrade lsef
+lsef --version
 ```
 
 ドキュメントサイトをローカルで確認する場合は、`docs` ディレクトリで Hugo server を起動します。
