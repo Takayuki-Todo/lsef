@@ -31,16 +31,30 @@ Install with Homebrew from the separate [Takayuki-Todo/homebrew-tap](https://git
 ```sh
 brew tap Takayuki-Todo/tap
 brew install lsef
+lsef --version
 ```
 
-Or build a release binary:
+Update an existing Homebrew install:
+
+```sh
+brew update
+brew upgrade lsef
+```
+
+Download a prebuilt archive from [GitHub Releases](https://github.com/Takayuki-Todo/lsef/releases) when you want a standalone binary. Release archives are published for Linux and macOS on both Intel and ARM platforms, plus Windows x64. Each archive includes the CLI binary, shell completions, and the documentation files from this repository.
+
+Run with the published container image:
+
+```sh
+docker run --rm -v "$PWD:/work" -w /work ghcr.io/takayuki-todo/lsef:latest .
+```
+
+Or build a release binary from source:
 
 ```sh
 cargo build --release
 ./target/release/lsef --help
 ```
-
-Prebuilt release archives are published for Linux and macOS on both Intel and ARM platforms, plus Windows x64. Each archive includes the CLI binary, shell completions, and the documentation files from this repository.
 
 ## Usage
 
@@ -142,6 +156,12 @@ Run formatting and lint checks:
 cargo fmt --check
 cargo clippy -- -D warnings
 ```
+
+### Release Automation
+
+Release branches use the `releases/vX.Y.Z` naming pattern. Pushing one opens a release pull request that updates `Cargo.toml` and `Cargo.lock`. Merging that pull request publishes the GitHub Release, uploads the platform archives, pushes the container image, and opens a Homebrew tap pull request.
+
+The Homebrew tap pull request is intentionally left for human review. After it is merged, `brew update && brew upgrade lsef` installs the latest release from the tap.
 
 ## About
 

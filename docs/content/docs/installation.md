@@ -5,13 +5,9 @@ weight: 10
 
 # Installation
 
-LSEF は Rust 製の CLI ツールです。ローカル checkout からインストールできます。
+LSEF は Rust 製の CLI ツールです。Homebrew、GitHub Release の配布アーカイブ、ソースからのビルドで利用できます。
 
-```sh
-git clone https://github.com/Takayuki-Todo/lsef.git
-cd lsef
-cargo install --path .
-```
+## Homebrew
 
 Homebrew で配布する場合は、このソースリポジトリではなく、別リポジトリ [Takayuki-Todo/homebrew-tap](https://github.com/Takayuki-Todo/homebrew-tap) に置いた `Formula/lsef.rb` を使います。
 
@@ -23,7 +19,47 @@ brew install lsef
 インストール後、次のコマンドで動作を確認します。
 
 ```sh
-lsef --help
+lsef --version
+```
+
+既存のインストールを更新する場合は、tap を更新してから upgrade します。
+
+```sh
+brew update
+brew upgrade lsef
+```
+
+## GitHub Releases
+
+[GitHub Releases](https://github.com/Takayuki-Todo/lsef/releases) には、次の環境向けの配布アーカイブを公開します。
+
+| Platform | Target |
+| --- | --- |
+| Linux x86_64 | `x86_64-unknown-linux-gnu` |
+| Linux ARM64 | `aarch64-unknown-linux-gnu` |
+| macOS Intel | `x86_64-apple-darwin` |
+| macOS Apple Silicon | `aarch64-apple-darwin` |
+| Windows x64 | `x86_64-pc-windows-msvc` |
+
+各アーカイブには、CLI バイナリ、シェル補完ファイル、README などのドキュメントを含めます。
+
+## Container Image
+
+リリース時に `ghcr.io/takayuki-todo/lsef` のコンテナイメージも公開します。
+
+```sh
+docker run --rm -v "$PWD:/work" -w /work ghcr.io/takayuki-todo/lsef:latest .
+docker run --rm -v "$PWD:/work" -w /work ghcr.io/takayuki-todo/lsef:0.3.0 --version
+```
+
+## Source Build
+
+ローカル checkout からインストールする場合は、次のコマンドを使います。
+
+```sh
+git clone https://github.com/Takayuki-Todo/lsef.git
+cd lsef
+cargo install --path .
 ```
 
 リリース用バイナリとしてビルドする場合は、次のコマンドを使います。

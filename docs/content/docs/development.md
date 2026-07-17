@@ -31,20 +31,36 @@ cargo build --release --locked
 
 ## Release Automation
 
-新しいバージョンを配布する場合は、`releases/vX.Y.Z` ブランチを push します。
+新しいバージョンを配布する場合は、`releases/vX.Y.Z` ブランチを push します。例として `0.4.0` を配布する場合は次のようにします。
 
 ```sh
-git checkout -b releases/v0.2.0
-git push origin releases/v0.2.0
+git switch main
+git pull
+git switch -c releases/v0.4.0
+git push -u origin releases/v0.4.0
 ```
 
-`update version` workflow が `Cargo.toml` と `Cargo.lock` をそのバージョンに更新し、`main` 向けの release PR を作成します。
+`update version` workflow が `Cargo.toml` と `Cargo.lock` をそのバージョンに更新し、`main` 向けの release PR を作成します。version files がすでに一致している場合でも、同じ release PR が作成または更新されます。
 
-release PR を merge すると、`publish` workflow が GitHub Release を作成し、各 OS 向け配布アーカイブを upload し、sha256 を集めます。その後、`Takayuki-Todo/homebrew-tap` の `Formula/lsef.rb` を更新する PR を自動作成します。
+release PR を merge すると、`publish` workflow が次の処理を実行します。
+
+- GitHub Release `vX.Y.Z` を draft として作成します。
+- Linux x86_64 / Linux ARM64 / macOS Intel / macOS Apple Silicon / Windows x64 の配布アーカイブを作成して upload します。
+- Linux x86_64 / Linux ARM64 / macOS Intel / macOS Apple Silicon の sha256 を集めます。
+- `ghcr.io/takayuki-todo/lsef` のコンテナイメージを `latest` と `X.Y.Z` tag で push します。
+- すべて成功したら GitHub Release を公開します。
+- `Takayuki-Todo/homebrew-tap` の `Formula/lsef.rb` を更新する PR を自動作成します。
 
 Homebrew tap 側の PR は人間が内容を確認して merge します。merge 後、`brew update && brew upgrade lsef` で新しいバージョンを入手できます。
 
-この自動化には、`lsef` リポジトリの Actions secrets に `HOMEBREW_TAP_TOKEN` が必要です。この token には `Takayuki-Todo/homebrew-tap` の `Contents: Read and write` と `Pull requests: Read and write` 権限を付けます。
+この自動化には、`lsef` リポジトリの Actions secrets に `HOMEBREW_TAP_TOKEN` が必要です。この token には `Takayuki-Todo/homebrew-tap` の `Contents: Read and write` と `Pull requests: Read and write` 権限を付けます。通常の GitHub Release 作成とアーカイブ upload には、workflow に渡される `GITHUB_TOKEN` を使います。
+
+公開後は、次のコマンドで Release と Homebrew tap PR を確認できます。
+
+```sh
+gh release view v0.4.0 --repo Takayuki-Todo/lsef
+gh pr list --repo Takayuki-Todo/homebrew-tap --head lsef-v0.4.0
+```
 
 ドキュメントサイトをローカルで確認する場合は、`docs` ディレクトリで Hugo server を起動します。
 

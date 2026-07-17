@@ -41,3 +41,27 @@ GitHub の Pages 設定で、source が `gh-pages` branch の root になって�
 `docs/public/`、`docs/resources/`、`docs/.hugo_build.lock` は生成物です。
 
 通常は main branch に commit しません。
+
+## Homebrew Still Installs An Older Version
+
+Homebrew tap 側の PR が merge されるまでは、`brew install` や `brew upgrade` で最新の GitHub Release は取得できません。
+
+まず tap を更新します。
+
+```sh
+brew update
+brew info Takayuki-Todo/tap/lsef
+```
+
+tap の Formula が最新になっていることを確認してから upgrade します。
+
+```sh
+brew upgrade lsef
+lsef --version
+```
+
+## Release Workflow Did Not Run
+
+`publish` workflow は、`releases/vX.Y.Z` ブランチから `main` への pull request が merge された時だけ動きます。`main` への直接 push や、別のブランチ名からの PR では release は公開されません。
+
+Homebrew tap PR の作成で止まる場合は、`HOMEBREW_TAP_TOKEN` が Actions secrets に設定されているか確認します。

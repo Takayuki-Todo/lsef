@@ -31,16 +31,30 @@ Homebrew でインストールする場合は、`Formula/lsef.rb` を置いて�
 ```sh
 brew tap Takayuki-Todo/tap
 brew install lsef
+lsef --version
 ```
 
-リリース用バイナリをビルドする場合:
+既存の Homebrew インストールを更新する場合:
+
+```sh
+brew update
+brew upgrade lsef
+```
+
+単体のバイナリが必要な場合は [GitHub Releases](https://github.com/Takayuki-Todo/lsef/releases) から配布アーカイブを取得できます。Linux と macOS は Intel / ARM 向け、Windows は x64 向けに配布アーカイブを公開しています。各アーカイブには CLI バイナリ、シェル補完ファイル、リポジトリ内のドキュメントを含めています。
+
+公開済みのコンテナイメージで実行する場合:
+
+```sh
+docker run --rm -v "$PWD:/work" -w /work ghcr.io/takayuki-todo/lsef:latest .
+```
+
+ソースからリリース用バイナリをビルドする場合:
 
 ```sh
 cargo build --release
 ./target/release/lsef --help
 ```
-
-Linux と macOS は Intel / ARM 向け、Windows は x64 向けに配布アーカイブも公開しています。各アーカイブには CLI バイナリ、シェル補完ファイル、リポジトリ内のドキュメントを含めています。
 
 ## 使い方
 
@@ -142,6 +156,12 @@ format と lint を確認する:
 cargo fmt --check
 cargo clippy -- -D warnings
 ```
+
+### リリース自動化
+
+リリースブランチは `releases/vX.Y.Z` という名前にします。このブランチを push すると、`Cargo.toml` と `Cargo.lock` を更新する release PR が作成されます。その PR を merge すると、GitHub Release の公開、各 OS 向け配布アーカイブの upload、コンテナイメージの push、Homebrew tap 更新 PR の作成まで自動で進みます。
+
+Homebrew tap 側の PR は、人間が確認して merge する運用です。merge 後は `brew update && brew upgrade lsef` で最新リリースを取得できます。
 
 ## 情報
 
